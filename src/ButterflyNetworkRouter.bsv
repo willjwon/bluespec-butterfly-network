@@ -53,7 +53,11 @@ module mkButterflyNetworkRouter(ButterflyNetworkRouter);
     // Componenets
     // Fifos
     Vector#(2, Fifo#(1, Flit)) ingressFlits <- replicateM(mkBypassFifo);
+`ifdef pipelined
     Vector#(2, Fifo#(1, Flit)) egressFlits <- replicateM(mkPipelineFifo);
+`else
+    Vector#(2, Fifo#(1, Flit)) egressFlits <- replicateM(mkBypassFifo);
+`endif
 
     
     // Rules
