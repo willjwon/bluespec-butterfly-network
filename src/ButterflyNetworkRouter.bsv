@@ -22,18 +22,22 @@
 
 
 import Fifo::*;
+import Vector::*;
 
 import ButterflyNetworkType::*;
 
 
-interface ButterflyNetworkRouterData;
+interface ButterflyNetworkRouterIngressPort;
     method Action put(Flit flit);
+endinterface
+
+interface ButterflyNetworkRouterEgressPort;
     method ActionValue#(Flit) get;
 endinterface
 
 interface ButterflyNetworkRouter;
-    interface ButterflyNetworkRouterData left;
-    interface ButterflyNetworkRouterData right;
+    interface Vector#(2, ButterflyNetworkRouterIngressPort) ingressPort;
+    interface Vector#(2, ButterflyNetworkRouterEgressPort) egressPort;
 endinterface
 
 
@@ -47,92 +51,97 @@ module mkButterflyNetworkRouter(ButterflyNetworkRouter);
     **/
 
     // Componenets
-    // Ingress Fifos
-    Fifo#(1, Flit) leftIngressFlit <- mkBypassFifo;
-    Fifo#(1, Flit) rightIngressFlit <- mkBypassFifo;
-
-    // Egress fifos
-    Fifo#(1, Flit) leftEgressFlit <- mkPipelineFifo;
-    Fifo#(1, Flit) rightEgressFlit <- mkPipelineFifo;
+    // Fifos
+    Vector#(2, Fifo#(1, Flit)) ingressFlits <- replicateM(mkBypassFifo);
+    Vector#(2, Fifo#(1, Flit)) egressFlits <- replicateM(mkBypassFifo);
 
     
     // Rules
-    rule forwardBoth if (leftIngressFlit.notEmpty && rightIngressFlit.notEmpty);
+    rule forwardBothFlit if (ingressFlits[0].notEmpty && ingressFlits[1].notEmpty);
         // Assumption: already arbitrated
-        let leftFlit = leftIngressFlit.first;
-        leftIngressFlit.deq;
+        let flit0 = ingressFlits[0].first;
+        ingressFlits[0].deq;
 
-        let rightFlit = rightIngressFlit.first;
-        rightIngressFlit.deq;
+        let flit1 = ingressFlits[1].first;
+        ingressFlits[1].deq;
 
-        // Address change
-        let leftToLeft = msb(leftFlit.destinationAddress) == 0;
-        leftFlit.destinationAddress = leftFlit.destinationAddress << 1;
-        rightFlit.destinationAddress = rightFlit.destinationAddress << 1;
+        // Crossing check
+        let notCrossing = msb(flit0.destinationAddress) == 0;
 
-        if (leftToLeft) begin
-            leftEgressFlit.enq(leftFlit);
-            rightEgressFlit.enq(rightFlit);
+        // Address modification
+        flit0.destinationAddress = flit0.destinationAddress << 1;
+        flit1.destinationAddress = flit1.destinationAddress << 1;
+
+        // Forwarding
+        if (notCrossing) begin
+            egressFlits[0].enq(flit0);
+            egressFlits[1].enq(flit1);
         end else begin
             // left to right
-            rightEgressFlit.enq(leftFlit);
-            leftEgressFlit.enq(rightFlit);
+            egressFlits[1].enq(flit0);
+            egressFlits[0].enq(flit1);
         end
     endrule
 
-    rule forwardLeft if (leftIngressFlit.notEmpty && !rightIngressFlit.notEmpty);
-        let leftFlit = leftIngressFlit.first;
-        leftIngressFlit.deq;
+    rule forwardFlit0 if (ingressFlits[0].notEmpty && !ingressFlits[1].notEmpty);
+        let flit0 = ingressFlits[0].first;
+        ingressFlits[0].deq;
 
-        // Address change
-        let leftToLeft = msb(leftFlit.destinationAddress) == 0;
-        leftFlit.destinationAddress = leftFlit.destinationAddress << 1;
+        // Crossing check
+        let notCrossing = msb(flit0.destinationAddress) == 0;
 
-        if (leftToLeft) begin
-            leftEgressFlit.enq(leftFlit);
+        // Address modification
+        flit0.destinationAddress = flit0.destinationAddress << 1;
+
+        // Forwarding
+        if (notCrossing) begin
+            egressFlits[0].enq(flit0);
         end else begin
-            // left to right
-            rightEgressFlit.enq(leftFlit);
+            // Crossing
+            egressFlits[1].enq(flit0);
         end
     endrule
 
-    rule forwardRight if (!leftIngressFlit.notEmpty && rightIngressFlit.notEmpty);
-        let rightFlit = rightIngressFlit.first;
-        rightIngressFlit.deq;
+    rule forwardFlit1 if (!ingressFlits[0].notEmpty && ingressFlits[1].notEmpty);
+        let flit1 = ingressFlits[1].first;
+        ingressFlits[1].deq;
 
-        // Address change
-        let rightToLeft = msb(rightFlit.destinationAddress) == 0;
-        rightFlit.destinationAddress = rightFlit.destinationAddress << 1;
+        // Crossing check
+        let notCrossing = msb(flit1.destinationAddress) == 1;
 
-        if (rightToLeft) begin
-            leftEgressFlit.enq(rightFlit);
+        // Address modification
+        flit1.destinationAddress = flit1.destinationAddress << 1;
+
+        // Forwarding
+        if (notCrossing) begin
+            egressFlits[1].enq(flit1);
         end else begin
-            // right to right
-            rightEgressFlit.enq(rightFlit);
+            egressFlits[0].enq(flit1);
         end
     endrule
 
 
     // Interfaces
-    interface left = interface ButterflyNetworkRouterData
-        method Action put(Flit flit);
-            leftIngressFlit.enq(flit);
-        endmethod
+    Vector#(2, ButterflyNetworkRouterIngressPort) ingressPortDefinition;
+    for (Integer i = 0; i < 2; i = i + 1) begin
+        ingressPortDefinition[i] = interface ButterflyNetworkRouterIngressPort
+            method Action put(Flit flit);
+                ingressFlits[i].enq(flit);
+            endmethod
+        endinterface;
+        
+    end
 
-        method ActionValue#(Flit) get;
-            leftEgressFlit.deq;
-            return leftEgressFlit.first;
-        endmethod
-    endinterface;
+    Vector#(2, ButterflyNetworkRouterEgressPort) egressPortDefinition;
+    for (Integer i = 0; i < 2; i = i + 1) begin
+        egressPortDefinition[i] = interface ButterflyNetworkRouterEgressPort
+            method ActionValue#(Flit) get;
+                egressFlits[i].deq;
+                return egressFlits[i].first;
+            endmethod
+        endinterface;
+    end
 
-    interface right = interface ButterflyNetworkRouterData
-        method Action put(Flit flit);
-            rightIngressFlit.enq(flit);
-        endmethod
-
-        method ActionValue#(Flit) get;
-            rightEgressFlit.deq;
-            return rightEgressFlit.first;
-        endmethod
-    endinterface;
+    interface ingressPort = ingressPortDefinition;
+    interface egressPort = egressPortDefinition;
 endmodule
