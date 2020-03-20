@@ -23,5 +23,5 @@
 # SOFTWARE.
 
 
-DEFAULT_VERILOG="Adder"
+DEFAULT_VERILOG="ButterflyNetwork"
 VERILOG_MODULE_PATH="./src"

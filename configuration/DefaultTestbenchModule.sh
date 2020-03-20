@@ -23,5 +23,5 @@
 # SOFTWARE.
 
 
-DEFAULT_TESTBENCH="Adder"
+DEFAULT_TESTBENCH="ButterflyNetwork"
 TESTBENC_MODULE_PATH="./testbench"
