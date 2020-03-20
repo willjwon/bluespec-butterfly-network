@@ -20,28 +20,24 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-typedef struct {
-    Bit#(32) payload;
-    Bit#(8) destinationAddress;
-} Flit deriving (Bits, Eq);
-
 
 import Fifo::*;
 
 
-interface ButterflyNetworkRouterData;
-    method Action put(Flit data);
-    method ActionValue#(Flit) get;
+interface ButterflyNetworkRouterData#(type destinationAddressType, type payloadType);
+    method Action put(destinationAddressType destinationAddress, payloadType payload);
+    method ActionValue#(payloadType) getPayload;
+    method ActionValue#(destinationAddressType) getDestinationAddress;
 endinterface
 
-interface ButterflyNetworkRouter;
-    interface ButterflyNetworkRouterData left;
-    interface ButterflyNetworkRouterData right;
+interface ButterflyNetworkRouter#(type destinationAddressType, type payloadType);
+    interface ButterflyNetworkRouterData#(destinationAddressType, payloadType) left;
+    interface ButterflyNetworkRouterData#(destinationAddressType, payloadType) right;
 endinterface
 
 
-(* synthesize *)
-module mkButterflyNetworkRouter(ButterflyNetworkRouter);
+module mkButterflyNetworkRouter(ButterflyNetworkRouter#(destinationAddressType, payloadType))
+provisos (Bits#(destinationAddressType, destinationAddressTypeWidth), Bitwise#(destinationAddressType), Bits#(payloadType, flitTypeWidth));
     /**
         Router for butterfly networt
         This would work as 2x2 crossbar
@@ -51,76 +47,111 @@ module mkButterflyNetworkRouter(ButterflyNetworkRouter);
 
     // Componenets
     // Input fifos
-    Fifo#(1, Flit) leftInputFifo <- mkBypassFifo;
-    Fifo#(1, Flit) rightInputFifo <- mkBypassFifo;
+    Fifo#(1, payloadType) leftIngressPayload <- mkBypassFifo;
+    Fifo#(1, destinationAddressType) leftIngressAddress <- mkBypassFifo;
+
+    Fifo#(1, payloadType) rightIngressPayload <- mkBypassFifo;
+    Fifo#(1, destinationAddressType) rightIngressAddress <- mkBypassFifo;
 
     // Output fifos
-    Fifo#(1, Flit) leftOutputFifo <- mkPipelineFifo;
-    Fifo#(1, Flit) rightOutputFifo <- mkPipelineFifo;
+    Fifo#(1, payloadType) leftEgressPayload <- mkPipelineFifo;
+    Fifo#(1, destinationAddressType) leftEgressAddress <- mkPipelineFifo;
 
+    Fifo#(1, payloadType) rightEgressPayload <- mkPipelineFifo;
+    Fifo#(1, destinationAddressType) rightEgressAddress <- mkPipelineFifo;
 
+    
     // Rules
-    rule forwardBoth if (leftInputFifo.notEmpty && rightInputFifo.notEmpty);
-        let leftFlit = leftInputFifo.first;
-        leftInputFifo.deq;
-
-        let rightFlit = rightInputFifo.first;
-        rightInputFifo.deq;
-
+    rule forwardBoth if (leftIngressAddress.notEmpty && rightIngressAddress.notEmpty);
         // Assumption: already arbitrated
-        if (msb(leftFlit.destinationAddress) == 0) begin
-            leftOutputFifo.enq(leftFlit);
-            rightOutputFifo.enq(rightFlit);
+        if (msb(leftIngressAddress.first) == 0) begin
+            // left to left
+            leftEgressAddress.enq(leftIngressAddress.first << 1);
+            leftEgressPayload.enq(leftIngressPayload.first);
+
+            // right to right
+            rightEgressAddress.enq(rightIngressAddress.first << 1);
+            rightEgressPayload.enq(rightIngressPayload.first);
         end else begin
-            rightOutputFifo.enq(leftFlit);
-            leftOutputFifo.enq(rightFlit);
+            // left to right
+            rightEgressAddress.enq(leftIngressAddress.first << 1);
+            rightEgressPayload.enq(leftIngressPayload.first);
+
+            // right to left
+            leftEgressAddress.enq(rightIngressAddress.first << 1);
+            leftEgressPayload.enq(rightIngressPayload.first);
         end
+
+        leftIngressAddress.deq;
+        leftIngressPayload.deq;
+
+        rightIngressAddress.deq;
+        rightIngressPayload.deq;
     endrule
 
-    rule forwardLeft if (leftInputFifo.notEmpty && !rightInputFifo.notEmpty);
-        let leftFlit = leftInputFifo.first;
-        leftInputFifo.deq;
-
-        if (msb(leftFlit.destinationAddress) == 0) begin
-            leftOutputFifo.enq(leftFlit);
+    rule forwardLeft if (leftIngressAddress.notEmpty && !rightIngressAddress.notEmpty);
+            if (msb(leftIngressAddress.first) == 0) begin
+            // left to left
+            leftEgressAddress.enq(leftIngressAddress.first << 1);
+            leftEgressPayload.enq(leftIngressPayload.first);
         end else begin
-            rightOutputFifo.enq(leftFlit);
+            // left to right
+            rightEgressAddress.enq(leftIngressAddress.first << 1);
+            rightEgressPayload.enq(leftIngressPayload.first);
         end
 
+        leftIngressAddress.deq;
+        leftIngressPayload.deq;
     endrule
 
-    rule forwardRight if (!leftInputFifo.notEmpty && rightInputFifo.notEmpty);
-        let rightFlit = rightInputFifo.first;
-        rightInputFifo.deq;
-
-        if (msb(rightFlit.destinationAddress) == 0) begin
-            leftOutputFifo.enq(rightFlit);
+    rule forwardRight if (!leftIngressAddress.notEmpty && rightIngressAddress.notEmpty);
+        if (msb(rightIngressAddress.first) == 0) begin
+            // right to left
+            leftEgressAddress.enq(rightIngressAddress.first << 1);
+            leftEgressPayload.enq(rightIngressPayload.first);    
         end else begin
-            rightOutputFifo.enq(rightFlit);
+            // right to right
+            rightEgressAddress.enq(rightIngressAddress.first << 1);
+            rightEgressPayload.enq(rightIngressPayload.first);
         end
+
+        rightIngressAddress.deq;
+        rightIngressPayload.deq;
     endrule
 
 
     // Interfaces
     interface left = interface ButterflyNetworkRouterData
-        method Action put(Flit data);
-            leftInputFifo.enq(data);
+        method Action put(destinationAddressType destinationAddress, payloadType payload);
+            leftIngressAddress.enq(destinationAddress);
+            leftIngressPayload.enq(payload);
         endmethod
 
-        method ActionValue#(Flit) get;
-            leftOutputFifo.deq;
-            return leftOutputFifo.first;
+        method ActionValue#(payloadType) getPayload;
+            leftEgressPayload.deq;
+            return leftEgressPayload.first;
+        endmethod
+
+        method ActionValue#(destinationAddressType) getDestinationAddress;
+            leftEgressAddress.deq;
+            return leftEgressAddress.first;
         endmethod
     endinterface;
 
     interface right = interface ButterflyNetworkRouterData
-        method Action put(Flit data);
-            rightInputFifo.enq(data);
+        method Action put(destinationAddressType destinationAddress, payloadType payload);
+            rightIngressAddress.enq(destinationAddress);
+            rightIngressPayload.enq(payload);
         endmethod
 
-        method ActionValue#(Flit) get;
-            rightOutputFifo.deq;
-            return rightOutputFifo.first;
+        method ActionValue#(payloadType) getPayload;
+            rightEgressPayload.deq;
+            return rightEgressPayload.first;
+        endmethod
+
+        method ActionValue#(destinationAddressType) getDestinationAddress;
+            rightEgressAddress.deq;
+            return rightEgressAddress.first;
         endmethod
     endinterface;
 endmodule
