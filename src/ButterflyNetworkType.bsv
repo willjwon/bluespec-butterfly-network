@@ -27,6 +27,7 @@ typedef Bit#(32) PayloadType;
 
 
 // Induced datatype
+typedef TLog#(TerminalNodesCount) NetworkLevelsCount;
 typedef Bit#(TLog#(TerminalNodesCount)) TerminalNodeAddress;
 
 typedef struct {
