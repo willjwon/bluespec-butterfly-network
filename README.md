@@ -20,5 +20,48 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. -->
 
-# bluespec-compile-script
-Bluespec Compile Script - Use for Initial Projects
+# bluespec-butterfly-network
+Butterfly network implementation using Bluespec System Verilog
+
+## Setup
+Change `./src/ButterflyNetworkType.bsv`.
+```bluespec
+// User-defined datatype settings
+typedef 8 TerminalNodesCount;  // 8-to-8 Butterfly network
+typedef Bit#(32) PayloadType;  // Actual payload is 8 bits
+```
+
+## Instantiation
+```bluespec
+import ButterflyNetworkType::*;
+import ButterflyNetwork::*;
+
+let butterflyNetwork <- mkButterflyNetwork;
+```
+
+## Usage
+### Ingress Port
+```bluespec
+// Source Node 0 sending data 0 to Destination Node 1
+butterflyNetwork.ingressPort[0].put(Flit{payload: 0, destinationAddress: 1});
+```
+
+### Egress Port
+```bluespec
+// Destination Node 1 receiving flit
+let receivedFlit <- butterflyNetwork.egressPort[1].get;
+$display(receivedFlit.payload);
+```
+
+## Compilation
+### Non-pipelined
+```bash
+./ButterflyNetwork -v
+# or
+./ButterflyNetwork -v ButterflyNetwork nonpipelined
+```
+
+### Pipelined
+```bash
+./ButterflyNetwork -v ButterflyNetwork pipelined
+```
