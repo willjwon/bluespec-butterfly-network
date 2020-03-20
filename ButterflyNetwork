@@ -24,39 +24,56 @@
 
 
 # Path
-BUILD_DIR="./build"
-B_DIR="$BUILD_DIR/bdir"
-BIN_DIR="$BUILD_DIR/bin"
-SIM_DIR="$BUILD_DIR/sim"
-INFO_DIR="$BUILD_DIR/info"
-VERILOG_DIR="$BUILD_DIR/verilog"
-CONFIGURATION_DIR="./configuration"
-SRC_DIR="./src"
-TESTBENCH_DIR="./testbench"
+# Source path
+TOP_DIRECTORY=$(dirname $(readlink -f "$0"))
+SRC_DIRECTORY="$TOP_DIRECTORY/src"
+TESTBENCH_DIRECTORY="$TOP_DIRECTORY/testbench"
+
+# Include path
 INCLUDE_PATH="+"
-source $CONFIGURATION_DIR/DefaultTestbenchModule.sh
-source $CONFIGURATION_DIR/DefaultVerilogModule.sh
+
+# Build path
+BUILD_DIRECTORY="$TOP_DIRECTORY/build"
+B_DIRECTORY="$BUILD_DIRECTORY/bdir"
+BIN_DIRECTORY="$BUILD_DIRECTORY/bin"
+SIM_DIRECTORY="$BUILD_DIRECTORY/sim"
+INFO_DIRECTORY="$BUILD_DIRECTORY/info"
+VERILOG_DIRECTORY="$BUILD_DIRECTORY/verilog"
+
+
+# Load configuration
+CONFIGURATION_DIRECTORY="$TOP_DIRECTORY/configuration"
+source $CONFIGURATION_DIRECTORY/DefaultTestbenchModule.sh
+source $CONFIGURATION_DIRECTORY/DefaultVerilogModule.sh
 
 
 # Functions
 function clean {
-    rm -rf $BUILD_DIR
+    printf "%s\n" "[SCRIPT] Removing build directory at: $BUILD_DIRECTORY"
+    rm -rf $BUILD_DIRECTORY
+}
+
+function make_directories {
+    printf "\n%s\n" "[SCRIPT] Making build directories at: $BUILD_DIRECTORY"
+    mkdir -p $BUILD_DIRECTORY
+    mkdir -p $B_DIRECTORY
+    mkdir -p $BIN_DIRECTORY
+    mkdir -p $SIM_DIRECTORY
+    mkdir -p $INFO_DIRECTORY
+    mkdir -p $VERILOG_DIRECTORY
 }
 
 function setup {
-	clean
-	compute_include_path
-    mkdir -p $BUILD_DIR
-    mkdir -p $B_DIR
-    mkdir -p $BIN_DIR
-    mkdir -p $SIM_DIR
-    mkdir -p $INFO_DIR
-    mkdir -p $VERILOG_DIR
+    clean
+    make_directories
+    compute_include_path
 }
 
 function compute_include_path {
-    for directory in $(find . -mindepth 1 -maxdepth 1 -type d); do
-		if ! [[ $directory =~ \./\..* ]]; then
+    printf "\n%s\n" "[SCRIPT] Computing include path"
+    INCLUDE_PATH="+"
+    for directory in $(find $TOP_DIRECTORY -mindepth 1 -maxdepth 1 -type d); do
+		if ! [[ $directory =~ $TOP_DIRECTORY/\..* || $directory =~ $BUILD_DIRECTORY.* ]]; then
 			INCLUDE_PATH="$INCLUDE_PATH:$directory"
 
 			for subdirectory in $(find $directory -mindepth 1 -type d); do
@@ -68,54 +85,83 @@ function compute_include_path {
 
 function compile_testbench {
     setup
-    bsc -u -sim +RTS -K1024M -RTS -check-assert -aggressive-conditions -no-warn-action-shadowing -parallel-sim-link 8 -warn-scheduler-effort -bdir $B_DIR -simdir $SIM_DIR -info-dir $INFO_DIR -p $INCLUDE_PATH $1/$2Test.bsv
-    bsc -u -sim -e mk$2Test -o $BIN_DIR/$2Test +RTS -K1024M -RTS -bdir $B_DIR -simdir $SIM_DIR -info-dir $INFO_DIR -warn-scheduler-effort -parallel-sim-link 8 -Xc++ -O0
+    printf "\n%s\n" "[SCRIPT] Compiling testbench: $1/$2Test.bsv"
+    bsc -u -sim +RTS -K1024M -RTS -aggressive-conditions -no-warn-action-shadowing -check-assert -parallel-sim-link 8 -warn-scheduler-effort -bdir $B_DIRECTORY -simdir $SIM_DIRECTORY -info-dir $INFO_DIRECTORY -p $INCLUDE_PATH $1/$2Test.bsv
+    bsc -u -sim -e mk$2Test -o $BIN_DIRECTORY/$2Test +RTS -K1024M -RTS -bdir $B_DIRECTORY -simdir $SIM_DIRECTORY -info-dir $INFO_DIRECTORY -warn-scheduler-effort -parallel-sim-link 8 -Xc++ -O0
+    printf "\n%s\n" "[SCRIPT] Testbench compiled. Run with -r flag."
+}
+
+function compile_testbench_with_args {
+    setup
+    printf "\n%s\n" "[SCRIPT] Compiling testbench: $1/$2Test.bsv, with argument: $3"
+    bsc -u -sim -D $3 +RTS -K1024M -RTS -aggressive-conditions -no-warn-action-shadowing -check-assert -parallel-sim-link 8 -warn-scheduler-effort -bdir $B_DIRECTORY -simdir $SIM_DIRECTORY -info-dir $INFO_DIRECTORY -p $INCLUDE_PATH $1/$2Test.bsv
+    bsc -u -sim -e mk$2Test -o $BIN_DIRECTORY/$2Test +RTS -K1024M -RTS -bdir $B_DIRECTORY -simdir $SIM_DIRECTORY -info-dir $INFO_DIRECTORY -warn-scheduler-effort -parallel-sim-link 8 -Xc++ -O0
+    printf "\n%s\n" "[SCRIPT] Testbench compiled. Run with -r flag."
+}
+
+function run_testbench {
+    printf "%s\n\n" "[SCRIPT] Running simulation: $BIN_DIRECTORY/$1Test"
+    $BIN_DIRECTORY/$1Test
 }
 
 function compile_verilog {
     setup
-    bsc -verilog -g mk$2 +RTS -K1024M -RTS -steps-max-intervals 200000 -aggressive-conditions -no-warn-action-shadowing -bdir $B_DIR -simdir $SIM_DIR -info-dir $INFO_DIR -p $INCLUDE_PATH -u $1/$2.bsv
-    find $SRC_DIR -name "*.v" -exec mv -t $VERILOG_DIR {} \+
-    printf "%s\n" "Verilog file saved: ./build/verilog/"
+    printf "\n%s\n" "[SCRIPT] Compiling into Verilog: $1/$2.bsv"
+    bsc -verilog -g mk$2 +RTS -K1024M -RTS -steps-max-intervals 200000 -aggressive-conditions -no-warn-action-shadowing -bdir $B_DIRECTORY -simdir $SIM_DIRECTORY -info-dir $INFO_DIRECTORY -p $INCLUDE_PATH -u $1/$2.bsv
+    find $SRC_DIRECTORY -name "*.v" -exec mv -t $VERILOG_DIRECTORY {} \+
+    printf "\n%s\n" "[SCRIPT] Verilog files are saved at: $TOP_DIRECTORY/build/verilog/"
 }
 
-function run_testbench {
-    $BIN_DIR/$1Test
+function compile_verilog_with_args {
+    setup
+    printf "\n%s\n" "[SCRIPT] Compiling into Verilog: $1/$2Test.bsv, with argument: $3"
+    bsc -verilog -g mk$2 -D $3 +RTS -K1024M -RTS -steps-max-intervals 200000 -aggressive-conditions -no-warn-action-shadowing -bdir $B_DIRECTORY -simdir $SIM_DIRECTORY -info-dir $INFO_DIRECTORY -p $INCLUDE_PATH -u $1/$2.bsv
+    find $SRC_DIRECTORY -name "*.v" -exec mv -t $VERILOG_DIRECTORY {} \+
+    printf "\n%s\n" "[SCRIPT] Verilog files are saved at: $TOP_DIRECTORY/build/verilog/"
 }
-
 
 # Script
 case "$1" in
     -l|--clean)
-        clean
-        printf "%s\n" "build directory removed";;
+        clean;;
     -c|--compile)
         case "$2" in
             "")
-                compile_testbench $TESTBENC_MODULE_PATH $DEFAULT_TESTBENCH;;
+                compile_testbench $DEFAULT_TEST_DIRECTORY $DEFAULT_TEST_MODULE;;
             *)
-                compile_testbench $TESTBENCH_DIR $2;;
+                case "$3" in
+                "")
+                    compile_testbench $TESTBENCH_DIRECTORY $2;;
+                *)
+                    compile_testbench_with_args $TESTBENCH_DIRECTORY $2 $3;;
+                esac;;
         esac;;
     -r|--run)
         case "$2" in
             "")
-                run_testbench $DEFAULT_TESTBENCH;;
+                run_testbench $DEFAULT_TEST_MODULE;;
             *)
                 run_testbench $2;;
         esac;;
     -v|--verilog)
         case "$2" in
             "")
-                compile_verilog $VERILOG_MODULE_PATH $DEFAULT_VERILOG;;
+                compile_verilog $DEFAULT_VERILOG_MODULE_DIRECTORY $DEFAULT_VERILOG_MODULE;;
             *)
-                compile_verilog $SRC_DIR $2;;
+                case "$3" in
+                "")
+                    compile_verilog $SRC_DIRECTORY $2;;
+                *)
+                    compile_verilog_with_args $SRC_DIRECTORY $2 $3;;
+                esac;;
+                
         esac;;
     -h|--help|*)
-        printf "%s\n\n" "Usage: $0 <command> [<options>]"
-        printf "%s\n" "Commands:"
-        printf "    %-30s %s\n" "--help (-h)" "Shows this message"
-        printf "    %-30s %s\n" "--clean (-l)" "Remove build folder"
-        printf "    %-30s %s\n" "--compile (-c) [module]" "Compile [module] for simulation"
-        printf "    %-30s %s\n" "--run (-r) [module]" "Run simulation for [module]"
-        printf "    %-30s %s\n" "--verilog (-v) [module]" "Compile [module] in Verilog (saved in ./build/verilog/)";;
+        printf "\n%s\n\n" "Usage: $0 <command> [<options>]"
+        printf "\n%s\n" "Commands:"
+        printf "    %-30s \n%s\n" "--help (-h)" "Shows this message"
+        printf "    %-30s \n%s\n" "--clean (-l)" "Remove build folder"
+        printf "    %-30s \n%s\n" "--compile (-c) [module]" "Compile [module] for simulation"
+        printf "    %-30s \n%s\n" "--run (-r) [module]" "Run simulation for [module]"
+        printf "    %-30s \n%s\n" "--verilog (-v) [module]" "Compile [module] in Verilog (saved in $TOP_DIRECTORY/build/verilog/)";;
 esac
