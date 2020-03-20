@@ -23,21 +23,22 @@
 
 import Fifo::*;
 
+import ButterflyNetworkType::*;
 
-interface ButterflyNetworkRouterData#(type destinationAddressType, type payloadType);
-    method Action put(destinationAddressType destinationAddress, payloadType payload);
-    method ActionValue#(payloadType) getPayload;
-    method ActionValue#(destinationAddressType) getDestinationAddress;
+
+interface ButterflyNetworkRouterData;
+    method Action put(Flit flit);
+    method ActionValue#(Flit) get;
 endinterface
 
-interface ButterflyNetworkRouter#(type destinationAddressType, type payloadType);
-    interface ButterflyNetworkRouterData#(destinationAddressType, payloadType) left;
-    interface ButterflyNetworkRouterData#(destinationAddressType, payloadType) right;
+interface ButterflyNetworkRouter;
+    interface ButterflyNetworkRouterData left;
+    interface ButterflyNetworkRouterData right;
 endinterface
 
 
-module mkButterflyNetworkRouter(ButterflyNetworkRouter#(destinationAddressType, payloadType))
-provisos (Bits#(destinationAddressType, destinationAddressTypeWidth), Bitwise#(destinationAddressType), Bits#(payloadType, flitTypeWidth));
+(* synthesize *)
+module mkButterflyNetworkRouter(ButterflyNetworkRouter);
     /**
         Router for butterfly networt
         This would work as 2x2 crossbar
@@ -46,112 +47,92 @@ provisos (Bits#(destinationAddressType, destinationAddressTypeWidth), Bitwise#(d
     **/
 
     // Componenets
-    // Input fifos
-    Fifo#(1, payloadType) leftIngressPayload <- mkBypassFifo;
-    Fifo#(1, destinationAddressType) leftIngressAddress <- mkBypassFifo;
+    // Ingress Fifos
+    Fifo#(1, Flit) leftIngressFlit <- mkBypassFifo;
+    Fifo#(1, Flit) rightIngressFlit <- mkBypassFifo;
 
-    Fifo#(1, payloadType) rightIngressPayload <- mkBypassFifo;
-    Fifo#(1, destinationAddressType) rightIngressAddress <- mkBypassFifo;
-
-    // Output fifos
-    Fifo#(1, payloadType) leftEgressPayload <- mkPipelineFifo;
-    Fifo#(1, destinationAddressType) leftEgressAddress <- mkPipelineFifo;
-
-    Fifo#(1, payloadType) rightEgressPayload <- mkPipelineFifo;
-    Fifo#(1, destinationAddressType) rightEgressAddress <- mkPipelineFifo;
+    // Egress fifos
+    Fifo#(1, Flit) leftEgressFlit <- mkPipelineFifo;
+    Fifo#(1, Flit) rightEgressFlit <- mkPipelineFifo;
 
     
     // Rules
-    rule forwardBoth if (leftIngressAddress.notEmpty && rightIngressAddress.notEmpty);
+    rule forwardBoth if (leftIngressFlit.notEmpty && rightIngressFlit.notEmpty);
         // Assumption: already arbitrated
-        if (msb(leftIngressAddress.first) == 0) begin
-            // left to left
-            leftEgressAddress.enq(leftIngressAddress.first << 1);
-            leftEgressPayload.enq(leftIngressPayload.first);
+        let leftFlit = leftIngressFlit.first;
+        leftIngressFlit.deq;
 
-            // right to right
-            rightEgressAddress.enq(rightIngressAddress.first << 1);
-            rightEgressPayload.enq(rightIngressPayload.first);
+        let rightFlit = rightIngressFlit.first;
+        rightIngressFlit.deq;
+
+        // Address change
+        let leftToLeft = msb(leftFlit.destinationAddress) == 0;
+        leftFlit.destinationAddress = leftFlit.destinationAddress << 1;
+        rightFlit.destinationAddress = rightFlit.destinationAddress << 1;
+
+        if (leftToLeft) begin
+            leftEgressFlit.enq(leftFlit);
+            rightEgressFlit.enq(rightFlit);
         end else begin
             // left to right
-            rightEgressAddress.enq(leftIngressAddress.first << 1);
-            rightEgressPayload.enq(leftIngressPayload.first);
-
-            // right to left
-            leftEgressAddress.enq(rightIngressAddress.first << 1);
-            leftEgressPayload.enq(rightIngressPayload.first);
+            rightEgressFlit.enq(leftFlit);
+            leftEgressFlit.enq(rightFlit);
         end
-
-        leftIngressAddress.deq;
-        leftIngressPayload.deq;
-
-        rightIngressAddress.deq;
-        rightIngressPayload.deq;
     endrule
 
-    rule forwardLeft if (leftIngressAddress.notEmpty && !rightIngressAddress.notEmpty);
-            if (msb(leftIngressAddress.first) == 0) begin
-            // left to left
-            leftEgressAddress.enq(leftIngressAddress.first << 1);
-            leftEgressPayload.enq(leftIngressPayload.first);
+    rule forwardLeft if (leftIngressFlit.notEmpty && !rightIngressFlit.notEmpty);
+        let leftFlit = leftIngressFlit.first;
+        leftIngressFlit.deq;
+
+        // Address change
+        let leftToLeft = msb(leftFlit.destinationAddress) == 0;
+        leftFlit.destinationAddress = leftFlit.destinationAddress << 1;
+
+        if (leftToLeft) begin
+            leftEgressFlit.enq(leftFlit);
         end else begin
             // left to right
-            rightEgressAddress.enq(leftIngressAddress.first << 1);
-            rightEgressPayload.enq(leftIngressPayload.first);
+            rightEgressFlit.enq(leftFlit);
         end
-
-        leftIngressAddress.deq;
-        leftIngressPayload.deq;
     endrule
 
-    rule forwardRight if (!leftIngressAddress.notEmpty && rightIngressAddress.notEmpty);
-        if (msb(rightIngressAddress.first) == 0) begin
-            // right to left
-            leftEgressAddress.enq(rightIngressAddress.first << 1);
-            leftEgressPayload.enq(rightIngressPayload.first);    
+    rule forwardRight if (!leftIngressFlit.notEmpty && rightIngressFlit.notEmpty);
+        let rightFlit = rightIngressFlit.first;
+        rightIngressFlit.deq;
+
+        // Address change
+        let rightToLeft = msb(rightFlit.destinationAddress) == 0;
+        rightFlit.destinationAddress = rightFlit.destinationAddress << 1;
+
+        if (rightToLeft) begin
+            leftEgressFlit.enq(rightFlit);
         end else begin
             // right to right
-            rightEgressAddress.enq(rightIngressAddress.first << 1);
-            rightEgressPayload.enq(rightIngressPayload.first);
+            rightEgressFlit.enq(rightFlit);
         end
-
-        rightIngressAddress.deq;
-        rightIngressPayload.deq;
     endrule
 
 
     // Interfaces
     interface left = interface ButterflyNetworkRouterData
-        method Action put(destinationAddressType destinationAddress, payloadType payload);
-            leftIngressAddress.enq(destinationAddress);
-            leftIngressPayload.enq(payload);
+        method Action put(Flit flit);
+            leftIngressFlit.enq(flit);
         endmethod
 
-        method ActionValue#(payloadType) getPayload;
-            leftEgressPayload.deq;
-            return leftEgressPayload.first;
-        endmethod
-
-        method ActionValue#(destinationAddressType) getDestinationAddress;
-            leftEgressAddress.deq;
-            return leftEgressAddress.first;
+        method ActionValue#(Flit) get;
+            leftEgressFlit.deq;
+            return leftEgressFlit.first;
         endmethod
     endinterface;
 
     interface right = interface ButterflyNetworkRouterData
-        method Action put(destinationAddressType destinationAddress, payloadType payload);
-            rightIngressAddress.enq(destinationAddress);
-            rightIngressPayload.enq(payload);
+        method Action put(Flit flit);
+            rightIngressFlit.enq(flit);
         endmethod
 
-        method ActionValue#(payloadType) getPayload;
-            rightEgressPayload.deq;
-            return rightEgressPayload.first;
-        endmethod
-
-        method ActionValue#(destinationAddressType) getDestinationAddress;
-            rightEgressAddress.deq;
-            return rightEgressAddress.first;
+        method ActionValue#(Flit) get;
+            rightEgressFlit.deq;
+            return rightEgressFlit.first;
         endmethod
     endinterface;
 endmodule

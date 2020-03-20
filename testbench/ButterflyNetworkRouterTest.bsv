@@ -20,22 +20,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+
+/**
+    Test with these settings:
+    
+    typedef 8 TerminalNodesCount;
+    typedef Bit#(32) PayloadType;
+**/
+
+
 import Assert::*;
 
+import ButterflyNetworkType::*;
 import ButterflyNetworkRouter::*;
 
 
 Bit#(32) maxCycle = 100;
 
 
-typedef Bit#(32) Payload;
-typedef Bit#(8) DestinationAddress;
-
-
 (* synthesize *)
 module mkButterflyNetworkRouterTest();
     // Components
-    ButterflyNetworkRouter#(DestinationAddress, Payload) butterflyNetworkRouter <- mkButterflyNetworkRouter;
+    ButterflyNetworkRouter butterflyNetworkRouter <- mkButterflyNetworkRouter;
 
     // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -52,41 +58,37 @@ module mkButterflyNetworkRouterTest();
 
     // Test cases
     rule putLeftToLeft if (cycle == 0);
-        butterflyNetworkRouter.left.put(8'b01000000, 1);
+        butterflyNetworkRouter.left.put(Flit{payload: 1, destinationAddress: 3'b011});
     endrule
 
     rule getLeftToLeft if (cycle == 1);
-        let payload <- butterflyNetworkRouter.left.getPayload;
-        let address <- butterflyNetworkRouter.left.getDestinationAddress;
-        dynamicAssert(payload == 1, "Should be 1");
-        dynamicAssert(address == 8'b10000000, "Address should be shifted left by 1");
+        let flit <- butterflyNetworkRouter.left.get;
+        dynamicAssert(flit.payload == 1, "Should be 1");
+        dynamicAssert(flit.destinationAddress == 3'b110, "Address should be shifted left by 1");
     endrule
 
     rule putRightToLeft if (cycle == 2);
-        butterflyNetworkRouter.right.put(8'b01100000, 5);
+        butterflyNetworkRouter.right.put(Flit{payload: 5, destinationAddress: 3'b010});
     endrule
 
     rule getRightToLeft if (cycle == 3);
-        let payload <- butterflyNetworkRouter.left.getPayload;
-        let address <- butterflyNetworkRouter.left.getDestinationAddress;
-        dynamicAssert(payload == 5, "Should be 5");
-        dynamicAssert(address == 8'b11000000, "Address should be shifted left by 1");
+        let flit <- butterflyNetworkRouter.right.get;
+        dynamicAssert(flit.payload == 5, "Should be 5");
+        dynamicAssert(flit.destinationAddress == 3'b100, "Address should be shifted left by 1");
     endrule
 
     rule putCrossing if (cycle == 4);
-        butterflyNetworkRouter.left.put(8'b10100000, 7);
-        butterflyNetworkRouter.right.put(8'b01000001, 11);
+        butterflyNetworkRouter.left.put(Flit{payload: 7, destinationAddress: 3'b101});
+        butterflyNetworkRouter.right.put(Flit{payload: 11, destinationAddress: 3'b010});
     endrule
     
     rule getCrossing if (cycle == 5);
-        let payloadLeft <- butterflyNetworkRouter.left.getPayload;
-        let addressLeft <- butterflyNetworkRouter.left.getDestinationAddress;
-        dynamicAssert(payloadLeft == 11, "Should be 11");
-        dynamicAssert(addressLeft == 8'b10000010, "Address should be shifted left by 1");
+        let leftFlit <- butterflyNetworkRouter.left.get;
+        dynamicAssert(leftFlit.payload == 11, "Should be 11");
+        dynamicAssert(leftFlit.destinationAddress == 3'b100, "Address should be shifted left by 1");
 
-        let payloadRight <- butterflyNetworkRouter.right.getPayload;
-        let addressRight <- butterflyNetworkRouter.right.getDestinationAddress;
-        dynamicAssert(payloadRight == 7, "Should be 7");
-        dynamicAssert(addressRight == 8'b01000000, "Address should be shifted left by 1");
+        let rightFlit <- butterflyNetworkRouter.right.get;
+        dynamicAssert(rightFlit.payload == 7, "Should be 7");
+        dynamicAssert(rightFlit.destinationAddress == 3'b010, "Address should be shifted left by 1");
     endrule
 endmodule
