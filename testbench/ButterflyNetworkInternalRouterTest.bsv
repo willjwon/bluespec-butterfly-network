@@ -32,16 +32,16 @@
 import Assert::*;
 
 import ButterflyNetworkType::*;
-import ButterflyNetworkRouter::*;
+import ButterflyNetworkInternalRouter::*;
 
 
 Bit#(32) maxCycle = 100;
 
 
 (* synthesize *)
-module mkButterflyNetworkRouterTest();
+module mkButterflyNetworkInternalRouterTest();
     // Components
-    ButterflyNetworkRouter butterflyNetworkRouter <- mkButterflyNetworkRouter;
+    ButterflyNetworkRouter butterflyNetworkRouter <- mkButterflyNetworkInternalRouter;
 
     // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);

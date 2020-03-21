@@ -42,7 +42,7 @@ endinterface
 
 
 (* synthesize *)
-module mkButterflyNetworkRouter(ButterflyNetworkRouter);
+module mkButterflyNetworkInternalRouter(ButterflyNetworkRouter);
     /**
         Router for butterfly networt
         This would work as 1x2 crossbar (1-input, 2-output)

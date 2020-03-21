@@ -26,7 +26,8 @@ import Vector::*;
 import Connectable::*;
 
 import ButterflyNetworkType::*;
-import ButterflyNetworkRouter::*;
+import ButterflyNetworkIngressRouter::*;
+import ButterflyNetworkInternalRouter::*;
 
 
 interface ButterflyNetworkIngressPort;
@@ -50,7 +51,7 @@ module mkButterflyNetwork(ButterflyNetwork);
     **/
 
     // Components
-    Vector#(TAdd#(NetworkLevelsCount, 1), Vector#(TerminalNodesCount, ButterflyNetworkRouter)) routers <- replicateM(replicateM(mkButterflyNetworkRouter));
+    Vector#(TAdd#(NetworkLevelsCount, 1), Vector#(TerminalNodesCount, ButterflyNetworkRouter)) routers <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
 
 
     // Combinational Logic
