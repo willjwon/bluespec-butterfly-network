@@ -35,14 +35,14 @@ interface ButterflyNetworkRouterEgressPort;
     method ActionValue#(Flit) get;
 endinterface
 
-interface ButterflyNetworkRouter;
+interface ButterflyNetworkIngressRouter;
     interface ButterflyNetworkRouterIngressPort ingressPort;
     interface Vector#(2, ButterflyNetworkRouterEgressPort) egressPort;
 endinterface
 
 
 (* synthesize *)
-module mkButterflyNetworkInternalRouter(ButterflyNetworkRouter);
+module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter);
     /**
         Router for butterfly networt
         This would work as 1x2 crossbar (1-input, 2-output)

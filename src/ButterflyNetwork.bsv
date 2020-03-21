@@ -51,16 +51,17 @@ module mkButterflyNetwork(ButterflyNetwork);
     **/
 
     // Components
-    Vector#(TAdd#(NetworkLevelsCount, 1), Vector#(TerminalNodesCount, ButterflyNetworkRouter)) routers <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
+    Vector#(TerminalNodesCount, ButterflyNetworkIngressRouter) ingressRouters <- replicateM(mkButterflyNetworkIngressRouter);
+    Vector#(NetworkLevelsCount, Vector#(TerminalNodesCount, ButterflyNetworkRouter)) internalRouters <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
 
 
     // Combinational Logic
-    // 1. For each networkLevel (0 through (NetworkLevlsCount - 1)):
+    // 1. For each networkLevel (1 through (NetworkLevlsCount - 1)):
     //      - would like to split into multiple crossing segments
     //      e.g., 
     //              o o o o o o o o
     //              |x| |x| |x| |x|
-    //              o o o o o o o o
+    //              o o o o o o o o   ( <- networkLevel)
     //      this shows segments=4 with nodesInSegments=2
     //
     // 2. Each routerID is composed of (segmentBase + routerOffset)
@@ -89,7 +90,28 @@ module mkButterflyNetwork(ButterflyNetwork);
     //        1) if not rolled over (i.e., routerID < destination): connect to ingressPort 0
     //        2) if rolled over (i.e., routerID > destination): connect to ingressPort 1
     //
-    for (Integer networkLevel = 0; networkLevel < valueOf(NetworkLevelsCount); networkLevel = networkLevel + 1) begin
+
+    // (1) Connect IngressRouter - First Level InternalRouter, Logic above doesn't change.
+    // Values used to remove redundant for-loops:
+    //      - networkLevel = 0
+    //      - Only 1 segment of size TerminalNodesCount with routerOffset=0
+    //      - First half is always not rolled over, Second half is always rolled over
+    for (Integer routerID = 0; routerID < valueOf(TerminalNodesCount) / 2; routerID = routerID + 1) begin
+        Integer destination = routerID + (valueOf(TerminalNodesCount) / 2);
+    
+        mkConnection(ingressRouters[routerID].egressPort[0].get, internalRouters[0][routerID].ingressPort[0].put);
+        mkConnection(ingressRouters[routerID].egressPort[1].get, internalRouters[0][destination].ingressPort[0].put);
+    end
+
+    for (Integer routerID = valueOf(TerminalNodesCount) / 2; routerID < valueOf(TerminalNodesCount); routerID = routerID + 1) begin
+        Integer destination = routerID - (valueOf(TerminalNodesCount) / 2);
+    
+        mkConnection(ingressRouters[routerID].egressPort[0].get, internalRouters[0][destination].ingressPort[1].put);
+        mkConnection(ingressRouters[routerID].egressPort[1].get, internalRouters[0][routerID].ingressPort[1].put);
+    end
+
+    // (2) Connection among InternalRouters - using the algorithm above
+    for (Integer networkLevel = 1; networkLevel < valueOf(NetworkLevelsCount); networkLevel = networkLevel + 1) begin
         Integer nodesInSegmentCount = valueOf(TerminalNodesCount) / (2 ** networkLevel);
 
         for (Integer segment = 0; segment < (2 ** networkLevel); segment = segment + 1) begin
@@ -100,23 +122,23 @@ module mkButterflyNetwork(ButterflyNetwork);
                 Integer destination = segmentBase + ((routerOffset + (nodesInSegmentCount / 2)) % nodesInSegmentCount);
                 
                 if (routerID < destination) begin
-                    mkConnection(routers[networkLevel][routerID].egressPort[0].get, routers[networkLevel + 1][routerID].ingressPort[0].put);
-                    mkConnection(routers[networkLevel][routerID].egressPort[1].get, routers[networkLevel + 1][destination].ingressPort[0].put);
+                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[0].get, internalRouters[networkLevel][routerID].ingressPort[0].put);
+                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[1].get, internalRouters[networkLevel][destination].ingressPort[0].put);
                 end else begin
-                    mkConnection(routers[networkLevel][routerID].egressPort[0].get, routers[networkLevel + 1][destination].ingressPort[1].put);
-                    mkConnection(routers[networkLevel][routerID].egressPort[1].get, routers[networkLevel + 1][routerID].ingressPort[1].put);
+                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[0].get, internalRouters[networkLevel][destination].ingressPort[1].put);
+                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[1].get, internalRouters[networkLevel][routerID].ingressPort[1].put);
                 end
             end
         end
     end
 
-
+    
     // Interfaces
     Vector#(TerminalNodesCount, ButterflyNetworkIngressPort) ingressPortDefinition;
     for (Integer inPort = 0; inPort < valueOf(TerminalNodesCount); inPort = inPort + 1) begin
         ingressPortDefinition[inPort] = interface ButterflyNetworkIngressPort
             method Action put(Flit flit);
-                routers[0][inPort].ingressPort[1].put(flit);
+                ingressRouters[inPort].ingressPort.put(flit);
             endmethod
         endinterface;
     end
@@ -125,7 +147,7 @@ module mkButterflyNetwork(ButterflyNetwork);
     for (Integer outPort = 0; outPort < valueOf(TerminalNodesCount); outPort = outPort + 1) begin
         egressPortDefinition[outPort] = interface ButterflyNetworkEgressPort
             method ActionValue#(Flit) get;
-                let receivedFlit <- routers[valueOf(NetworkLevelsCount)][outPort].egressPort[0].get;
+                let receivedFlit <- internalRouters[valueOf(NetworkLevelsCount) - 1][outPort].egressPort[0].get;
                 return receivedFlit;
             endmethod
         endinterface;
