@@ -52,7 +52,7 @@ module mkButterflyNetwork(ButterflyNetwork);
 
     // Components
     Vector#(TerminalNodesCount, ButterflyNetworkIngressRouter) ingressRouters <- replicateM(mkButterflyNetworkIngressRouter);
-    Vector#(NetworkLevelsCount, Vector#(TerminalNodesCount, ButterflyNetworkRouter)) internalRouters <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
+    Vector#(NetworkLevelsCount, Vector#(TerminalNodesCount, ButterflyNetworkInternalRouter)) internalRouters <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
 
 
     // Combinational Logic

@@ -41,7 +41,7 @@ Bit#(32) maxCycle = 100;
 (* synthesize *)
 module mkButterflyNetworkInternalRouterTest();
     // Components
-    ButterflyNetworkRouter butterflyNetworkRouter <- mkButterflyNetworkInternalRouter;
+    ButterflyNetworkInternalRouter butterflyNetworkRouter <- mkButterflyNetworkInternalRouter;
 
     // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);
