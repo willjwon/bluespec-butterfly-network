@@ -21,16 +21,49 @@
 // SOFTWARE.
 
 
-// User-defined datatype settings
-typedef 1024 TerminalNodesCount;
-typedef Bit#(64) PayloadType;
+import Assert::*;
 
 
-// Induced datatype
-typedef TLog#(TerminalNodesCount) NetworkLevelsCount;
-typedef Bit#(TLog#(TerminalNodesCount)) TerminalNodeAddress;
+import CollectionTreeRouter::*;
 
-typedef struct {
-    PayloadType payload;
-    TerminalNodeAddress destinationAddress;
-} Flit deriving (Bits, Eq);
+
+Bit#(32) maxCycle = 100;
+
+
+(* synthesize *)
+module mkCollectionTreeRouterTest();
+    // uut
+    CollectionTreeRouter#(Bit#(32)) collectionTreeRouter <- mkCollectionTreeRouter;
+
+    // cycle
+    Reg#(Bit#(32)) cycle <- mkReg(0);
+
+    // run simulation
+    rule runSimulation;
+        cycle <= cycle + 1;
+    endrule
+
+    rule finishSimulation if (cycle >= maxCycle);
+        $display("Simulation finished at cycle %d.", cycle);
+        $finish(0);
+    endrule
+
+    // test cases
+    rule forwardLeft if (cycle == 0);
+        collectionTreeRouter.ingressPort[0].put(3);
+    endrule
+
+    rule fetchLeft if (cycle == 1);
+        let result <- collectionTreeRouter.egressPort.get;
+        dynamicAssert(result == 3, "Should be 3");
+    endrule
+
+    rule forwardRight if (cycle == 2);
+        collectionTreeRouter.ingressPort[0].put(30);
+    endrule
+
+    rule fetchRight if (cycle == 3);
+        let result <- collectionTreeRouter.egressPort.get;
+        dynamicAssert(result == 30, "Should be 30");
+    endrule
+endmodule
