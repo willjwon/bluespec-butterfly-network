@@ -22,18 +22,16 @@
 // SOFTWARE.
 
 import Assert::*;
-
-import ButterflyNetworkType::*;
-import ButterflyNetworkInternalRouter::*;
+import InternalSwitch::*;
 
 
 Bit#(32) maxCycle = 100;
 
 
 (* synthesize *)
-module mkButterflyNetworkInternalRouterTest();
+module mkInternalSwitchTest();
     // Components
-    ButterflyNetworkInternalRouter#(Bit#(3), Bit#(32)) butterflyNetworkRouter <- mkButterflyNetworkInternalRouter;
+    InternalSwitch#(Bit#(3), Bit#(32)) internalSwitch <- mkInternalSwitch;
 
     // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -50,42 +48,42 @@ module mkButterflyNetworkInternalRouterTest();
 
     // Test cases
     rule putLeftToLeft if (cycle == 0);
-        butterflyNetworkRouter.ingressPort[0].put(tuple2(3'b011, 1));
+        internalSwitch.ingressPort[0].put(tuple2(3'b011, 1));
     endrule
 
     rule getLeftToLeft if (cycle == 1);
         $display("test 1");
 
-        let flit <- butterflyNetworkRouter.egressPort[0].get;
+        let flit <- internalSwitch.egressPort[0].get;
         dynamicAssert(tpl_2(flit) == 1, "Should be 1");
         dynamicAssert(tpl_1(flit) == 3'b110, "Address should be shifted left by 1");
     endrule
 
     rule putRightToLeft if (cycle == 2);
-        butterflyNetworkRouter.ingressPort[1].put(tuple2(3'b010, 5));
+        internalSwitch.ingressPort[1].put(tuple2(3'b010, 5));
     endrule
 
     rule getRightToLeft if (cycle == 3);
         $display("test 2");
 
-        let flit <- butterflyNetworkRouter.egressPort[0].get;
+        let flit <- internalSwitch.egressPort[0].get;
         dynamicAssert(tpl_2(flit) == 5, "Should be 5");
         dynamicAssert(tpl_1(flit) == 3'b100, "Address should be shifted left by 1");
     endrule
 
     rule putCrossing if (cycle == 4);
-        butterflyNetworkRouter.ingressPort[0].put(tuple2(3'b101, 7));
-        butterflyNetworkRouter.ingressPort[1].put(tuple2(3'b010, 11));
+        internalSwitch.ingressPort[0].put(tuple2(3'b101, 7));
+        internalSwitch.ingressPort[1].put(tuple2(3'b010, 11));
     endrule
     
     rule getCrossing if (cycle == 5);
         $display("test 3");
 
-        let leftFlit <- butterflyNetworkRouter.egressPort[0].get;
+        let leftFlit <- internalSwitch.egressPort[0].get;
         dynamicAssert(tpl_2(leftFlit) == 11, "Should be 11");
         dynamicAssert(tpl_1(leftFlit) == 3'b100, "Address should be shifted left by 1");
 
-        let rightFlit <- butterflyNetworkRouter.egressPort[1].get;
+        let rightFlit <- internalSwitch.egressPort[1].get;
         dynamicAssert(tpl_2(rightFlit) == 7, "Should be 7");
         dynamicAssert(tpl_1(rightFlit) == 3'b010, "Address should be shifted left by 1");
     endrule

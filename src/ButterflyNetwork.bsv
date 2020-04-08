@@ -26,7 +26,7 @@ import Vector::*;
 import Connectable::*;
 
 import IngressSwitch::*;
-import ButterflyNetworkInternalRouter::*;
+import InternalSwitch::*;
 import EgressSwitch::*;
 
 
@@ -59,8 +59,8 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
     // Components
     Vector#(terminalNodesCount, IngressSwitch#(addressType, payloadType)) ingressRouters
         <- replicateM(mkIngressSwitch);
-    Vector#(TSub#(networkLevelsCount, 1), Vector#(terminalNodesCount, ButterflyNetworkInternalRouter#(addressType, payloadType))) internalRouters
-        <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
+    Vector#(TSub#(networkLevelsCount, 1), Vector#(terminalNodesCount, InternalSwitch#(addressType, payloadType))) internalRouters
+        <- replicateM(replicateM(mkInternalSwitch));
     Vector#(terminalNodesCount, EgressSwitch#(addressType, payloadType)) egressRouters 
         <- replicateM(mkEgressSwitch);
 
