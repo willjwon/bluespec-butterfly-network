@@ -21,14 +21,6 @@
 // SOFTWARE.
 
 
-/**
-    Test with these settings:
-    
-    typedef 8 TerminalNodesCount;
-    typedef Bit#(32) PayloadType;
-**/
-
-
 import Assert::*;
 
 import ButterflyNetworkType::*;
@@ -41,7 +33,7 @@ Bit#(32) maxCycle = 100;
 (* synthesize *)
 module mkButterflyNetworkEgressRouterTest();
     // Components
-    ButterflyNetworkEgressRouter butterflyNetworkRouter <- mkButterflyNetworkEgressRouter;
+    ButterflyNetworkEgressRouter#(Bit#(3), Bit#(32)) butterflyNetworkRouter <- mkButterflyNetworkEgressRouter;
 
     // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -58,20 +50,24 @@ module mkButterflyNetworkEgressRouterTest();
 
     // Test cases
     rule putToPort0 if (cycle == 0);
-        butterflyNetworkRouter.ingressPort[0].put(Flit{payload: 1, destinationAddress: 3'b000});
+        butterflyNetworkRouter.ingressPort[0].put(tuple2(3'b000, 1));
     endrule
 
     rule getPort0 if (cycle == 1);
-        let flit <- butterflyNetworkRouter.egressPort.get;
-        dynamicAssert(flit.payload == 1, "Should be 1");
+        $display("test 0");
+
+        let payload <- butterflyNetworkRouter.egressPort.get;
+        dynamicAssert(payload == 1, "Should be 1");
     endrule
 
     rule putToPort1 if (cycle == 2);
-        butterflyNetworkRouter.ingressPort[1].put(Flit{payload: 5, destinationAddress: 3'b000});
+        butterflyNetworkRouter.ingressPort[1].put(tuple2(3'b000, 5));
     endrule
 
     rule getPort1 if (cycle == 3);
-        let flit <- butterflyNetworkRouter.egressPort.get;
-        dynamicAssert(flit.payload == 5, "Should be 5");
+        $display("test 1");
+
+        let payload <- butterflyNetworkRouter.egressPort.get;
+        dynamicAssert(payload == 5, "Should be 5");
     endrule
 endmodule

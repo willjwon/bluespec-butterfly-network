@@ -32,19 +32,19 @@ interface ButterflyNetworkEgressRouterIngressPort#(type addressType, type payloa
 endinterface
 
 interface ButterflyNetworkEgressRouterEgressPort#(type payloadType);
-    method ActionValue#(payloadType payload) get;
+    method ActionValue#(payloadType) get;
 endinterface
 
 interface ButterflyNetworkEgressRouter#(type addressType, type payloadType);
-    interface Vector#(2, ButterflyNetworkEgressRouterIngressPort$(addressType, payloadType)) ingressPort;
+    interface Vector#(2, ButterflyNetworkEgressRouterIngressPort#(addressType, payloadType)) ingressPort;
     interface ButterflyNetworkEgressRouterEgressPort#(payloadType) egressPort;
 endinterface
 
 
-(* synthesize *)
 module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter#(addressType, payloadType)) provisos (
     Bits#(addressType, addressTypeBitLength),
-    Bits#(payloadType, payloadTypeBitLength)
+    Bitwise#(addressType),
+    Bits#(payloadType, payloadTypeBitLength),
     Alias#(Tuple2#(addressType, payloadType), flitType)
 );
     /**
@@ -62,18 +62,18 @@ module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter#(addressType,
     
     // Rules
     rule forwardFlit0 if (ingressFlits[0].notEmpty && !ingressFlits[1].notEmpty);
-        egressFlit.enq(tpl_2(ingressFlits[0]));
+        egressFlit.enq(tpl_2(ingressFlits[0].first));
         ingressFlits[0].deq;
     endrule
 
     rule forwardFlit1 if (!ingressFlits[0].notEmpty && ingressFlits[1].notEmpty);
-        egressFlit.enq(tpl_2(ingressFlits[1]);
+        egressFlit.enq(tpl_2(ingressFlits[1].first));
         ingressFlits[1].deq;
     endrule
 
 
     // Interfaces
-    Vector#(2, ButterflyNetworkEgressRouterIngressPort) ingressPortDefinition;
+    Vector#(2, ButterflyNetworkEgressRouterIngressPort#(addressType, payloadType)) ingressPortDefinition;
     for (Integer i = 0; i < 2; i = i + 1) begin
         ingressPortDefinition[i] = interface ButterflyNetworkEgressRouterIngressPort#(addressType, payloadType)
             method Action put(Tuple2#(addressType, payloadType) flit);
@@ -85,7 +85,7 @@ module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter#(addressType,
     interface ingressPort = ingressPortDefinition;
 
     interface egressPort = interface ButterflyNetworkEgressRouterEgressPort#(payloadType)
-        method ActionValue#(payloadType payload) get;
+        method ActionValue#(payloadType) get;
             egressFlit.deq;
             return egressFlit.first;
         endmethod
