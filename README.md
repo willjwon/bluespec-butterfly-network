@@ -24,42 +24,34 @@ SOFTWARE. -->
 # bluespec-butterfly-network
 Butterfly network implementation using Bluespec System Verilog
 
-## Setup
-Change `./src/RegularButterflyNetworkType.bsv`.
-```bluespec
-// User-defined datatype settings
-typedef 8 TerminalNodesCount;  // 8-to-8 Butterfly network
-typedef Bit#(32) PayloadType;  // Actual payload is 8 bits
-```
-
+# Regular Butterfly Network (n-to-n butterfly)
 ## Instantiation
 ```bluespec
-import RegularButterflyNetworkType::*;
 import RegularButterflyNetwork::*;
 
-let butterflyNetwork <- mkRegularButterflyNetwork;
+// RegularButterflyNetwork#(Terminal nodes count, terminal nodes address, payload datatype)
+RegularButterflyNetwork#(8, Bit#(TLog#(8)), Bit#(32)) regularButterflyNetwork <- mkRegularButterflyNetwork;
+    // 8-to-8 network, destination address Bit#(3), with payload type 32
 ```
 
 ## Usage
 ### Ingress Port
 ```bluespec
-// Source Node 0 sending data 0 to Destination Node 1
-butterflyNetwork.ingressPort[0].put(Flit{payload: 0, destinationAddress: 1});
+// network.ingressPort[source].put(destinationAddress, payload)
+regularButterflyNetwork.ingressPort[3].put(3'd7, 11);  // sending data 11, from node 3 to node 7
 ```
 
 ### Egress Port
 ```bluespec
-// Destination Node 1 receiving flit
-let receivedFlit <- butterflyNetwork.egressPort[1].get;
-$display(receivedFlit.payload);
+// network.egressPort[dest].get
+let receivedPayload <- regularButterflyNetwork.egressPort[7].get;  // node 7 received payload
+$display(receivedPayload);
 ```
 
 ## Compilation
 ### Non-pipelined
 ```bash
-./RegularButterflyNetwork -v
-# or
-./RegularButterflyNetwork -v RegularButterflyNetwork nonpipelined
+./RegularButterflyNetwork -v RegularButterflyNetwork non-pipelined
 ```
 
 ### Pipelined
