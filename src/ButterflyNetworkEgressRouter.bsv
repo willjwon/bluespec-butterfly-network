@@ -27,22 +27,26 @@ import Vector::*;
 import ButterflyNetworkType::*;
 
 
-interface ButterflyNetworkEgressRouterIngressPort;
-    method Action put(Flit flit);
+interface ButterflyNetworkEgressRouterIngressPort#(type addressType, type payloadType);
+    method Action put(Tuple2#(addressType, payloadType));
 endinterface
 
-interface ButterflyNetworkEgressRouterEgressPort;
-    method ActionValue#(Flit) get;
+interface ButterflyNetworkEgressRouterEgressPort#(type payloadType);
+    method ActionValue#(payloadType payload) get;
 endinterface
 
-interface ButterflyNetworkEgressRouter;
-    interface Vector#(2, ButterflyNetworkEgressRouterIngressPort) ingressPort;
-    interface ButterflyNetworkEgressRouterEgressPort egressPort;
+interface ButterflyNetworkEgressRouter#(type addressType, type payloadType);
+    interface Vector#(2, ButterflyNetworkEgressRouterIngressPort$(addressType, payloadType)) ingressPort;
+    interface ButterflyNetworkEgressRouterEgressPort#(payloadType) egressPort;
 endinterface
 
 
 (* synthesize *)
-module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter);
+module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter#(addressType, payloadType)) provisos (
+    Bits#(addressType, addressTypeBitLength),
+    Bits#(payloadType, payloadTypeBitLength)
+    Alias#(Tuple2#(addressType, payloadType), flitType)
+);
     /**
         Router for butterfly networt
         This would work as 2x1 crossbar (2 input port, 1 output port)
@@ -52,18 +56,18 @@ module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter);
 
     // Componenets
     // Fifos
-    Vector#(2, Fifo#(1, Flit)) ingressFlits <- replicateM(mkBypassFifo);
-    Fifo#(1, Flit) egressFlit <- mkBypassFifo;  // Output module can always bypass result
+    Vector#(2, Fifo#(1, flitType)) ingressFlits <- replicateM(mkBypassFifo);
+    Fifo#(1, payloadType) egressFlit <- mkBypassFifo;  // Output module can always bypass result
 
     
     // Rules
     rule forwardFlit0 if (ingressFlits[0].notEmpty && !ingressFlits[1].notEmpty);
-        egressFlit.enq(ingressFlits[0].first);
+        egressFlit.enq(tpl_2(ingressFlits[0]));
         ingressFlits[0].deq;
     endrule
 
     rule forwardFlit1 if (!ingressFlits[0].notEmpty && ingressFlits[1].notEmpty);
-        egressFlit.enq(ingressFlits[1].first);
+        egressFlit.enq(tpl_2(ingressFlits[1]);
         ingressFlits[1].deq;
     endrule
 
@@ -71,8 +75,8 @@ module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter);
     // Interfaces
     Vector#(2, ButterflyNetworkEgressRouterIngressPort) ingressPortDefinition;
     for (Integer i = 0; i < 2; i = i + 1) begin
-        ingressPortDefinition[i] = interface ButterflyNetworkEgressRouterIngressPort
-            method Action put(Flit flit);
+        ingressPortDefinition[i] = interface ButterflyNetworkEgressRouterIngressPort#(addressType, payloadType)
+            method Action put(Tuple2#(addressType, payloadType));
                 ingressFlits[i].enq(flit);
             endmethod
         endinterface;    
@@ -80,8 +84,8 @@ module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter);
 
     interface ingressPort = ingressPortDefinition;
 
-    interface egressPort = interface ButterflyNetworkEgressRouterEgressPort
-        method ActionValue#(Flit) get;
+    interface egressPort = interface ButterflyNetworkEgressRouterEgressPort#(payloadType)
+        method ActionValue#(payloadType payload) get;
             egressFlit.deq;
             return egressFlit.first;
         endmethod

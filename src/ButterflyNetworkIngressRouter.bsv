@@ -45,6 +45,7 @@ endinterface
 module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter#(addressType, payloadType)) provisos (
     Bits#(addressType, addressTypeBitLength),
     Bits#(payloadType, payloadTypeBitLength)
+    Alias#(Tuple2#(addressType, payloadType), flitType)
 );
     /**
         Router for butterfly networt
@@ -84,7 +85,7 @@ module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter#(addressTyp
     // Interfaces
     Vector#(2, ButterflyNetworkRouterEgressPort) egressPortDefinition;
     for (Integer i = 0; i < 2; i = i + 1) begin
-        egressPortDefinition[i] = interface ButterflyNetworkRouterEgressPort
+        egressPortDefinition[i] = interface ButterflyNetworkRouterEgressPort#(addressType, payloadType)
             method ActionValue#(Tuple2#(addressType, payloadType)) get;
                 egressFlits[i].deq;
                 return egressFlits[i].first;
@@ -92,7 +93,7 @@ module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter#(addressTyp
         endinterface;
     end
 
-    interface ingressPort = interface ButterflyNetworkRouterIngressPort
+    interface ingressPort = interface ButterflyNetworkRouterIngressPort#(addressType, payloadType)
         method Action put(addressType destinationAddress, payloadType payload);
             ingressFlit.enq(tuple2(destinationAddress, payload));
         endmethod
