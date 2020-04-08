@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import RegularButterflyNetwork::*;
+import IngressSwitch::*;
 
 
 typedef 128 TerminalNodesCount;
@@ -29,7 +29,7 @@ typedef Bit#(64) PayloadType;
 
 
 (* synthesize *)
-module mkRegularButterflyNetworkInstance(RegularButterflyNetwork#(TerminalNodesCount, Bit#(TLog#(TerminalNodesCount)), PayloadType));
-    RegularButterflyNetwork#(TerminalNodesCount, Bit#(TLog#(TerminalNodesCount)), PayloadType) regularButterflyNetwork <- mkRegularButterflyNetwork;
-    return regularButterflyNetwork;
+module mkIngressSwitchInstance(IngressSwitch#(Bit#(TLog#(TerminalNodesCount)), PayloadType));
+    IngressSwitch#(Bit#(TLog#(TerminalNodesCount)), PayloadType) ingressSwitch <- mkIngressSwitch;
+    return ingressSwitch;
 endmodule
