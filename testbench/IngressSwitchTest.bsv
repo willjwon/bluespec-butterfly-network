@@ -23,17 +23,16 @@
 
 import Assert::*;
 
-import ButterflyNetworkType::*;
-import ButterflyNetworkIngressRouter::*;
+import IngressSwitch::*;
 
 
 Bit#(32) maxCycle = 100;
 
 
 (* synthesize *)
-module mkButterflyNetworkIngressRouterTest();
+module mkIngressSwitchTest();
     // Components
-    ButterflyNetworkIngressRouter#(Bit#(3), Bit#(32)) butterflyNetworkRouter <- mkButterflyNetworkIngressRouter;
+    IngressSwitch#(Bit#(3), Bit#(32)) ingressSwitch <- mkIngressSwitch;
 
     // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -50,26 +49,26 @@ module mkButterflyNetworkIngressRouterTest();
 
     // Test cases
     rule putToPort0 if (cycle == 0);
-        butterflyNetworkRouter.ingressPort.put(3'b011, 1);
+        ingressSwitch.ingressPort.put(3'b011, 1);
     endrule
 
     rule getPort0 if (cycle == 1);
         $display("test 1");
 
-        let flit <- butterflyNetworkRouter.egressPort[0].get;
+        let flit <- ingressSwitch.egressPort[0].get;
         dynamicAssert(tpl_2(flit) == 1, "Should be 1");
         dynamicAssert(tpl_1(flit) == 3'b110, "Address should be shifted left by 1");
     endrule
 
     rule putToPort1 if (cycle == 10);
-        butterflyNetworkRouter.ingressPort.put(3'b111, 5);
+        ingressSwitch.ingressPort.put(3'b111, 5);
     endrule
 
     rule getPort1 if (cycle == 15);
         $display("test 2");
 
-        let flit <- butterflyNetworkRouter.egressPort[1].get;
+        let flit <- ingressSwitch.egressPort[1].get;
         dynamicAssert(tpl_2(flit) == 5, "Should be 5");
-        dynamicAssert(tpl_1(flit) == 3'b100, "Address should be shifted left by 1");
+        dynamicAssert(tpl_1(flit) == 3'b110, "Address should be shifted left by 1");
     endrule
 endmodule

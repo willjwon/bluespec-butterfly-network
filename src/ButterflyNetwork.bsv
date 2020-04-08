@@ -24,7 +24,7 @@ import Fifo::*;
 import Vector::*;
 import Connectable::*;
 
-import ButterflyNetworkIngressRouter::*;
+import IngressSwitch::*;
 import ButterflyNetworkInternalRouter::*;
 import ButterflyNetworkEgressRouter::*;
 
@@ -56,8 +56,8 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
     **/
 
     // Components
-    Vector#(terminalNodesCount, ButterflyNetworkIngressRouter#(addressType, payloadType)) ingressRouters
-        <- replicateM(mkButterflyNetworkIngressRouter);
+    Vector#(terminalNodesCount, IngressSwitch#(addressType, payloadType)) ingressRouters
+        <- replicateM(mkIngressSwitch);
     Vector#(TSub#(networkLevelsCount, 1), Vector#(terminalNodesCount, ButterflyNetworkInternalRouter#(addressType, payloadType))) internalRouters
         <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
     Vector#(terminalNodesCount, ButterflyNetworkEgressRouter#(addressType, payloadType)) egressRouters 

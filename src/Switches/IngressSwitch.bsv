@@ -25,21 +25,21 @@ import Fifo::*;
 import Vector::*;
 
 
-interface ButterflyNetworkRouterIngressPort#(type addressType, type payloadType);
+interface IngressSwitchIngressPort#(type addressType, type payloadType);
     method Action put(addressType destinationAddress, payloadType payload);
 endinterface
 
-interface ButterflyNetworkRouterEgressPort#(type addressType, type payloadType);
+interface IngressSwitchEgressPort#(type addressType, type payloadType);
     method ActionValue#(Tuple2#(addressType, payloadType)) get;
 endinterface
 
-interface ButterflyNetworkIngressRouter#(type addressType, type payloadType);
-    interface ButterflyNetworkRouterIngressPort#(addressType, payloadType) ingressPort;
-    interface Vector#(2, ButterflyNetworkRouterEgressPort#(addressType, payloadType)) egressPort;
+interface IngressSwitch#(type addressType, type payloadType);
+    interface IngressSwitchIngressPort#(addressType, payloadType) ingressPort;
+    interface Vector#(2, IngressSwitchEgressPort#(addressType, payloadType)) egressPort;
 endinterface
 
 
-module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter#(addressType, payloadType)) provisos (
+module mkIngressSwitch(IngressSwitch#(addressType, payloadType)) provisos (
     Bits#(addressType, addressTypeBitLength),
     Bitwise#(addressType),
     Bits#(payloadType, payloadTypeBitLength),
@@ -81,9 +81,9 @@ module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter#(addressTyp
 
 
     // Interfaces
-    Vector#(2, ButterflyNetworkRouterEgressPort#(addressType, payloadType)) egressPortDefinition;
+    Vector#(2, IngressSwitchEgressPort#(addressType, payloadType)) egressPortDefinition;
     for (Integer i = 0; i < 2; i = i + 1) begin
-        egressPortDefinition[i] = interface ButterflyNetworkRouterEgressPort#(addressType, payloadType)
+        egressPortDefinition[i] = interface IngressSwitchEgressPort#(addressType, payloadType)
             method ActionValue#(Tuple2#(addressType, payloadType)) get;
                 egressFlits[i].deq;
                 return egressFlits[i].first;
@@ -91,7 +91,7 @@ module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter#(addressTyp
         endinterface;
     end
 
-    interface ingressPort = interface ButterflyNetworkRouterIngressPort#(addressType, payloadType)
+    interface ingressPort = interface IngressSwitchIngressPort#(addressType, payloadType)
         method Action put(addressType destinationAddress, payloadType payload);
             ingressFlit.enq(tuple2(destinationAddress, payload));
         endmethod
