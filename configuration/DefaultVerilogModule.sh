@@ -26,4 +26,4 @@
 # This assumes there's synthesizable .bsv module ./src/Adder.bsv
 # That implements synthesizable module mkAdder.
 DEFAULT_VERILOG_MODULE_DIRECTORY="./src"
-DEFAULT_VERILOG_MODULE="ButterflyNetwork"
+DEFAULT_VERILOG_MODULE="RegularButterflyNetwork"

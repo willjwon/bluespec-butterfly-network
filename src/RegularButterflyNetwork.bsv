@@ -24,27 +24,26 @@
 import Fifo::*;
 import Vector::*;
 import Connectable::*;
-
 import IngressSwitch::*;
 import InternalSwitch::*;
 import EgressSwitch::*;
 
 
-interface ButterflyNetworkIngressPort#(type addressType, type payloadType);
+interface RegularButterflyNetworkIngressPort#(type addressType, type payloadType);
     method Action put(addressType destinationAddress, payloadType payload);
 endinterface
 
-interface ButterflyNetworkEgressPort#(type payloadType);
+interface RegularButterflyNetworkEgressPort#(type payloadType);
     method ActionValue#(payloadType) get;
 endinterface
 
-interface ButterflyNetwork#(numeric type terminalNodesCount, type addressType, type payloadType);
-    interface Vector#(terminalNodesCount, ButterflyNetworkIngressPort#(addressType, payloadType)) ingressPort;
-    interface Vector#(terminalNodesCount, ButterflyNetworkEgressPort#(payloadType)) egressPort;
+interface RegularButterflyNetwork#(numeric type terminalNodesCount, type addressType, type payloadType);
+    interface Vector#(terminalNodesCount, RegularButterflyNetworkIngressPort#(addressType, payloadType)) ingressPort;
+    interface Vector#(terminalNodesCount, RegularButterflyNetworkEgressPort#(payloadType)) egressPort;
 endinterface
 
 
-module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, payloadType)) provisos (
+module mkRegularButterflyNetwork(RegularButterflyNetwork#(terminalNodesCount, addressType, payloadType)) provisos (
     Bits#(addressType, addressTypeBitLength),
     Bitwise#(addressType),
     Log#(terminalNodesCount, addressTypeBitLength),
@@ -57,12 +56,9 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
     **/
 
     // Components
-    Vector#(terminalNodesCount, IngressSwitch#(addressType, payloadType)) ingressRouters
-        <- replicateM(mkIngressSwitch);
-    Vector#(TSub#(networkLevelsCount, 1), Vector#(terminalNodesCount, InternalSwitch#(addressType, payloadType))) internalRouters
-        <- replicateM(replicateM(mkInternalSwitch));
-    Vector#(terminalNodesCount, EgressSwitch#(addressType, payloadType)) egressRouters 
-        <- replicateM(mkEgressSwitch);
+    Vector#(terminalNodesCount, IngressSwitch#(addressType, payloadType)) ingressSwitches <- replicateM(mkIngressSwitch);
+    Vector#(TSub#(networkLevelsCount, 1), Vector#(terminalNodesCount, InternalSwitch#(addressType, payloadType))) internalSwitches <- replicateM(replicateM(mkInternalSwitch));
+    Vector#(terminalNodesCount, EgressSwitch#(addressType, payloadType)) egressSwitches <- replicateM(mkEgressSwitch);
 
 
     // Combinational Logic
@@ -101,7 +97,7 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
     //        2) if rolled over (i.e., routerID > destination): connect to ingressPort 1
     //
 
-    // (1) Connect IngressRouter - First Level InternalRouter, Logic above doesn't change.
+    // (1) Connect ingressSwitches - First Level InternalRouter, Logic above doesn't change.
     // Values used to remove redundant for-loops:
     //      - networkLevel = 0
     //      - Only 1 segment of size terminalNodesCount with routerOffset=0
@@ -109,15 +105,15 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
     for (Integer routerID = 0; routerID < valueOf(terminalNodesCount) / 2; routerID = routerID + 1) begin
         Integer destination = routerID + (valueOf(terminalNodesCount) / 2);
     
-        mkConnection(ingressRouters[routerID].egressPort[0].get, internalRouters[0][routerID].ingressPort[0].put);
-        mkConnection(ingressRouters[routerID].egressPort[1].get, internalRouters[0][destination].ingressPort[0].put);
+        mkConnection(ingressSwitches[routerID].egressPort[0].get, internalSwitches[0][routerID].ingressPort[0].put);
+        mkConnection(ingressSwitches[routerID].egressPort[1].get, internalSwitches[0][destination].ingressPort[0].put);
     end
 
     for (Integer routerID = valueOf(terminalNodesCount) / 2; routerID < valueOf(terminalNodesCount); routerID = routerID + 1) begin
         Integer destination = routerID - (valueOf(terminalNodesCount) / 2);
     
-        mkConnection(ingressRouters[routerID].egressPort[0].get, internalRouters[0][destination].ingressPort[1].put);
-        mkConnection(ingressRouters[routerID].egressPort[1].get, internalRouters[0][routerID].ingressPort[1].put);
+        mkConnection(ingressSwitches[routerID].egressPort[0].get, internalSwitches[0][destination].ingressPort[1].put);
+        mkConnection(ingressSwitches[routerID].egressPort[1].get, internalSwitches[0][routerID].ingressPort[1].put);
     end
 
     // (2) Connection among InternalRouters - using the algorithm above
@@ -132,11 +128,11 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
                 Integer destination = segmentBase + ((routerOffset + (nodesInSegmentCount / 2)) % nodesInSegmentCount);
                 
                 if (routerID < destination) begin
-                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[0].get, internalRouters[networkLevel][routerID].ingressPort[0].put);
-                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[1].get, internalRouters[networkLevel][destination].ingressPort[0].put);
+                    mkConnection(internalSwitches[networkLevel - 1][routerID].egressPort[0].get, internalSwitches[networkLevel][routerID].ingressPort[0].put);
+                    mkConnection(internalSwitches[networkLevel - 1][routerID].egressPort[1].get, internalSwitches[networkLevel][destination].ingressPort[0].put);
                 end else begin
-                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[0].get, internalRouters[networkLevel][destination].ingressPort[1].put);
-                    mkConnection(internalRouters[networkLevel - 1][routerID].egressPort[1].get, internalRouters[networkLevel][routerID].ingressPort[1].put);
+                    mkConnection(internalSwitches[networkLevel - 1][routerID].egressPort[0].get, internalSwitches[networkLevel][destination].ingressPort[1].put);
+                    mkConnection(internalSwitches[networkLevel - 1][routerID].egressPort[1].get, internalSwitches[networkLevel][routerID].ingressPort[1].put);
                 end
             end
         end
@@ -151,33 +147,33 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
     for (Integer routerID = 0; routerID < valueOf(terminalNodesCount); routerID = routerID + 2) begin
         // routers not rolled over
         // destination would be (routerID, routerID + 1)
-        mkConnection(internalRouters[lastLevel][routerID].egressPort[0].get, egressRouters[routerID].ingressPort[0].put);
-        mkConnection(internalRouters[lastLevel][routerID].egressPort[1].get, egressRouters[routerID + 1].ingressPort[0].put);
+        mkConnection(internalSwitches[lastLevel][routerID].egressPort[0].get, egressSwitches[routerID].ingressPort[0].put);
+        mkConnection(internalSwitches[lastLevel][routerID].egressPort[1].get, egressSwitches[routerID + 1].ingressPort[0].put);
     end
 
     for (Integer routerID = 1; routerID < valueOf(terminalNodesCount); routerID = routerID + 2) begin
         // routers rolled over
         // destination would be (routerID - 1, routerID)
-        mkConnection(internalRouters[lastLevel][routerID].egressPort[0].get, egressRouters[routerID - 1].ingressPort[1].put);
-        mkConnection(internalRouters[lastLevel][routerID].egressPort[1].get, egressRouters[routerID].ingressPort[1].put);
+        mkConnection(internalSwitches[lastLevel][routerID].egressPort[0].get, egressSwitches[routerID - 1].ingressPort[1].put);
+        mkConnection(internalSwitches[lastLevel][routerID].egressPort[1].get, egressSwitches[routerID].ingressPort[1].put);
     end
 
     
     // Interfaces
-    Vector#(terminalNodesCount, ButterflyNetworkIngressPort#(addressType, payloadType)) ingressPortDefinition;
+    Vector#(terminalNodesCount, RegularButterflyNetworkIngressPort#(addressType, payloadType)) ingressPortDefinition;
     for (Integer inPort = 0; inPort < valueOf(terminalNodesCount); inPort = inPort + 1) begin
-        ingressPortDefinition[inPort] = interface ButterflyNetworkIngressPort#(addressType, payloadType)
+        ingressPortDefinition[inPort] = interface RegularButterflyNetworkIngressPort#(addressType, payloadType)
             method Action put(addressType destinationAddress, payloadType payload);
-                ingressRouters[inPort].ingressPort.put(destinationAddress, payload);
+                ingressSwitches[inPort].ingressPort.put(destinationAddress, payload);
             endmethod
         endinterface;
     end
 
-    Vector#(terminalNodesCount, ButterflyNetworkEgressPort#(payloadType)) egressPortDefinition;
+    Vector#(terminalNodesCount, RegularButterflyNetworkEgressPort#(payloadType)) egressPortDefinition;
     for (Integer outPort = 0; outPort < valueOf(terminalNodesCount); outPort = outPort + 1) begin
-        egressPortDefinition[outPort] = interface ButterflyNetworkEgressPort#(payloadType)
+        egressPortDefinition[outPort] = interface RegularButterflyNetworkEgressPort#(payloadType)
             method ActionValue#(payloadType) get;
-                let receivedPayload <- egressRouters[outPort].egressPort.get;
+                let receivedPayload <- egressSwitches[outPort].egressPort.get;
                 return receivedPayload;
             endmethod
         endinterface;

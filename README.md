@@ -25,7 +25,7 @@ SOFTWARE. -->
 Butterfly network implementation using Bluespec System Verilog
 
 ## Setup
-Change `./src/ButterflyNetworkType.bsv`.
+Change `./src/RegularButterflyNetworkType.bsv`.
 ```bluespec
 // User-defined datatype settings
 typedef 8 TerminalNodesCount;  // 8-to-8 Butterfly network
@@ -34,10 +34,10 @@ typedef Bit#(32) PayloadType;  // Actual payload is 8 bits
 
 ## Instantiation
 ```bluespec
-import ButterflyNetworkType::*;
-import ButterflyNetwork::*;
+import RegularButterflyNetworkType::*;
+import RegularButterflyNetwork::*;
 
-let butterflyNetwork <- mkButterflyNetwork;
+let butterflyNetwork <- mkRegularButterflyNetwork;
 ```
 
 ## Usage
@@ -57,12 +57,12 @@ $display(receivedFlit.payload);
 ## Compilation
 ### Non-pipelined
 ```bash
-./ButterflyNetwork -v
+./RegularButterflyNetwork -v
 # or
-./ButterflyNetwork -v ButterflyNetwork nonpipelined
+./RegularButterflyNetwork -v RegularButterflyNetwork nonpipelined
 ```
 
 ### Pipelined
 ```bash
-./ButterflyNetwork -v ButterflyNetwork pipelined
+./RegularButterflyNetwork -v RegularButterflyNetwork pipelined
 ```
