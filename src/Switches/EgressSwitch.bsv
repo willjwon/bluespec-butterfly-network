@@ -1,6 +1,7 @@
 // MIT License
 
-// Copyright (c) 2020 William Won (william.won@gatech.edu)
+// Copyright (c) 2020 Synergy Lab | Georgia Institute of Technology
+// Author: William Won (william.won@gatech.edu)
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,26 +21,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-
 import Fifo::*;
 import Vector::*;
 
 
-interface ButterflyNetworkEgressRouterIngressPort#(type addressType, type payloadType);
+interface EgressSwitchIngressPort#(type addressType, type payloadType);
     method Action put(Tuple2#(addressType, payloadType) flit);
 endinterface
 
-interface ButterflyNetworkEgressRouterEgressPort#(type payloadType);
+interface EgressSwitchEgressPort#(type payloadType);
     method ActionValue#(payloadType) get;
 endinterface
 
-interface ButterflyNetworkEgressRouter#(type addressType, type payloadType);
-    interface Vector#(2, ButterflyNetworkEgressRouterIngressPort#(addressType, payloadType)) ingressPort;
-    interface ButterflyNetworkEgressRouterEgressPort#(payloadType) egressPort;
+interface EgressSwitch#(type addressType, type payloadType);
+    interface Vector#(2, EgressSwitchIngressPort#(addressType, payloadType)) ingressPort;
+    interface EgressSwitchEgressPort#(payloadType) egressPort;
 endinterface
 
 
-module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter#(addressType, payloadType)) provisos (
+module mkEgressSwitch(EgressSwitch#(addressType, payloadType)) provisos (
     Bits#(addressType, addressTypeBitLength),
     Bitwise#(addressType),
     Bits#(payloadType, payloadTypeBitLength),
@@ -71,9 +71,9 @@ module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter#(addressType,
 
 
     // Interfaces
-    Vector#(2, ButterflyNetworkEgressRouterIngressPort#(addressType, payloadType)) ingressPortDefinition;
+    Vector#(2, EgressSwitchIngressPort#(addressType, payloadType)) ingressPortDefinition;
     for (Integer i = 0; i < 2; i = i + 1) begin
-        ingressPortDefinition[i] = interface ButterflyNetworkEgressRouterIngressPort#(addressType, payloadType)
+        ingressPortDefinition[i] = interface EgressSwitchIngressPort#(addressType, payloadType)
             method Action put(Tuple2#(addressType, payloadType) flit);
                 ingressFlits[i].enq(flit);
             endmethod
@@ -82,7 +82,7 @@ module mkButterflyNetworkEgressRouter(ButterflyNetworkEgressRouter#(addressType,
 
     interface ingressPort = ingressPortDefinition;
 
-    interface egressPort = interface ButterflyNetworkEgressRouterEgressPort#(payloadType)
+    interface egressPort = interface EgressSwitchEgressPort#(payloadType)
         method ActionValue#(payloadType) get;
             egressFlit.deq;
             return egressFlit.first;

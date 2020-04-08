@@ -1,6 +1,7 @@
 // MIT License
 
-// Copyright (c) 2020 William Won (william.won@gatech.edu)
+// Copyright (c) 2020 Synergy Lab | Georgia Institute of Technology
+// Author: William Won (william.won@gatech.edu)
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,50 +21,51 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-
 import Assert::*;
-
-
-import CollectionTreeRouter::*;
+import EgressSwitch::*;
 
 
 Bit#(32) maxCycle = 100;
 
 
 (* synthesize *)
-module mkCollectionTreeRouterTest();
-    // uut
-    CollectionTreeRouter#(Bit#(32)) collectionTreeRouter <- mkCollectionTreeRouter;
+module mkEgressSwitchTest();
+    // Components
+    EgressSwitch#(Bit#(3), Bit#(32)) egressSwitch <- mkEgressSwitch;
 
-    // cycle
+    // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);
 
-    // run simulation
+    // Run simulation
     rule runSimulation;
         cycle <= cycle + 1;
     endrule
 
     rule finishSimulation if (cycle >= maxCycle);
-        $display("Simulation finished at cycle %d.", cycle);
+        $display("Simulation finished without assertion failure.");
         $finish(0);
     endrule
 
-    // test cases
-    rule forwardLeft if (cycle == 0);
-        collectionTreeRouter.ingressPort[0].put(3);
+    // Test cases
+    rule putToPort0 if (cycle == 0);
+        egressSwitch.ingressPort[0].put(tuple2(3'b000, 1));
     endrule
 
-    rule fetchLeft if (cycle == 1);
-        let result <- collectionTreeRouter.egressPort.get;
-        dynamicAssert(result == 3, "Should be 3");
+    rule getPort0 if (cycle == 1);
+        $display("test 0");
+
+        let payload <- egressSwitch.egressPort.get;
+        dynamicAssert(payload == 1, "Should be 1");
     endrule
 
-    rule forwardRight if (cycle == 2);
-        collectionTreeRouter.ingressPort[0].put(30);
+    rule putToPort1 if (cycle == 2);
+        egressSwitch.ingressPort[1].put(tuple2(3'b000, 5));
     endrule
 
-    rule fetchRight if (cycle == 3);
-        let result <- collectionTreeRouter.egressPort.get;
-        dynamicAssert(result == 30, "Should be 30");
+    rule getPort1 if (cycle == 3);
+        $display("test 1");
+
+        let payload <- egressSwitch.egressPort.get;
+        dynamicAssert(payload == 5, "Should be 5");
     endrule
 endmodule

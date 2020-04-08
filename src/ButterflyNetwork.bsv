@@ -26,7 +26,7 @@ import Connectable::*;
 
 import IngressSwitch::*;
 import ButterflyNetworkInternalRouter::*;
-import ButterflyNetworkEgressRouter::*;
+import EgressSwitch::*;
 
 
 interface ButterflyNetworkIngressPort#(type addressType, type payloadType);
@@ -60,8 +60,8 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
         <- replicateM(mkIngressSwitch);
     Vector#(TSub#(networkLevelsCount, 1), Vector#(terminalNodesCount, ButterflyNetworkInternalRouter#(addressType, payloadType))) internalRouters
         <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
-    Vector#(terminalNodesCount, ButterflyNetworkEgressRouter#(addressType, payloadType)) egressRouters 
-        <- replicateM(mkButterflyNetworkEgressRouter);
+    Vector#(terminalNodesCount, EgressSwitch#(addressType, payloadType)) egressRouters 
+        <- replicateM(mkEgressSwitch);
 
 
     // Combinational Logic
