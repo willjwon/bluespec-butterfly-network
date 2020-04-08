@@ -29,8 +29,3 @@ typedef Bit#(64) PayloadType;
 // Induced datatype
 typedef TLog#(TerminalNodesCount) NetworkLevelsCount;
 typedef Bit#(TLog#(TerminalNodesCount)) TerminalNodeAddress;
-
-typedef struct {
-    PayloadType payload;
-    TerminalNodeAddress destinationAddress;
-} Flit deriving (Bits, Eq);

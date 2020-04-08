@@ -21,14 +21,6 @@
 // SOFTWARE.
 
 
-/**
-    Test with these settings:
-    
-    typedef 8 TerminalNodesCount;
-    typedef Bit#(32) PayloadType;
-**/
-
-
 import Assert::*;
 
 import ButterflyNetworkType::*;
@@ -41,7 +33,7 @@ Bit#(32) maxCycle = 100;
 (* synthesize *)
 module mkButterflyNetworkInternalRouterTest();
     // Components
-    ButterflyNetworkInternalRouter butterflyNetworkRouter <- mkButterflyNetworkInternalRouter;
+    ButterflyNetworkInternalRouter#(Bit#(3), Bit#(32)) butterflyNetworkRouter <- mkButterflyNetworkInternalRouter;
 
     // Benchmarks
     Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -64,7 +56,7 @@ module mkButterflyNetworkInternalRouterTest();
     rule getLeftToLeft if (cycle == 1);
         let flit <- butterflyNetworkRouter.egressPort[0].get;
         dynamicAssert(flit.payload == 1, "Should be 1");
-        dynamicAssert(flit.destinationAddress == 3'b110, "Address should be shifted left by 1");
+        dynamicAssert(tpl_1(flit) == 3'b110, "Address should be shifted left by 1");
     endrule
 
     rule putRightToLeft if (cycle == 2);
@@ -74,7 +66,7 @@ module mkButterflyNetworkInternalRouterTest();
     rule getRightToLeft if (cycle == 3);
         let flit <- butterflyNetworkRouter.egressPort[1].get;
         dynamicAssert(flit.payload == 5, "Should be 5");
-        dynamicAssert(flit.destinationAddress == 3'b100, "Address should be shifted left by 1");
+        dynamicAssert(tpl_1(flit) == 3'b100, "Address should be shifted left by 1");
     endrule
 
     rule putCrossing if (cycle == 4);
@@ -85,10 +77,10 @@ module mkButterflyNetworkInternalRouterTest();
     rule getCrossing if (cycle == 5);
         let leftFlit <- butterflyNetworkRouter.egressPort[0].get;
         dynamicAssert(leftFlit.payload == 11, "Should be 11");
-        dynamicAssert(leftFlit.destinationAddress == 3'b100, "Address should be shifted left by 1");
+        dynamicAssert(lefttpl_1(flit) == 3'b100, "Address should be shifted left by 1");
 
         let rightFlit <- butterflyNetworkRouter.egressPort[1].get;
         dynamicAssert(rightFlit.payload == 7, "Should be 7");
-        dynamicAssert(rightFlit.destinationAddress == 3'b010, "Address should be shifted left by 1");
+        dynamicAssert(righttpl_1(flit) == 3'b010, "Address should be shifted left by 1");
     endrule
 endmodule

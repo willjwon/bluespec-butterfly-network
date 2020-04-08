@@ -28,7 +28,7 @@ import ButterflyNetworkType::*;
 
 
 interface ButterflyNetworkRouterIngressPort#(type addressType, type payloadType);
-    method Action put(Tuple2#(addressType, payloadType));
+    method Action put(Tuple2#(addressType, payloadType) flit);
 endinterface
 
 interface ButterflyNetworkRouterEgressPort#(type addressType, type payloadType);
@@ -133,7 +133,7 @@ module mkButterflyNetworkInternalRouter(ButterflyNetworkInternalRouter#(addressT
     Vector#(2, ButterflyNetworkRouterIngressPort) ingressPortDefinition;
     for (Integer i = 0; i < 2; i = i + 1) begin
         ingressPortDefinition[i] = interface ButterflyNetworkRouterIngressPort#(addressType, payloadType);
-            method Action put(Tuple2#(addressType, payloadType));
+            method Action put(Tuple2#(addressType, payloadType) flit);
                 ingressFlits[i].enq(flit);
             endmethod
         endinterface;
