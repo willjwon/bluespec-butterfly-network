@@ -27,22 +27,25 @@ import Vector::*;
 import ButterflyNetworkType::*;
 
 
-interface ButterflyNetworkRouterIngressPort;
-    method Action put(Flit flit);
+interface ButterflyNetworkRouterIngressPort#(type addressType, type payloadType);
+    method Action put(addressType destinationAddress, payloadType payload);
 endinterface
 
-interface ButterflyNetworkRouterEgressPort;
-    method ActionValue#(Flit) get;
+interface ButterflyNetworkRouterEgressPort#(type addressType, type payloadType);
+    method ActionValue#(Tuple2#(addressType, payloadType)) get;
 endinterface
 
-interface ButterflyNetworkIngressRouter;
-    interface ButterflyNetworkRouterIngressPort ingressPort;
-    interface Vector#(2, ButterflyNetworkRouterEgressPort) egressPort;
+interface ButterflyNetworkIngressRouter#(type addressType, type payloadType);
+    interface ButterflyNetworkRouterIngressPort#(addressType, payloadType) ingressPort;
+    interface Vector#(2, ButterflyNetworkRouterEgressPort#(addressType, payloadType)) egressPort;
 endinterface
 
 
 (* synthesize *)
-module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter);
+module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter#(addressType, payloadType)) provisos (
+    Bits#(addressType, addressTypeBitLength),
+    Bits#(payloadType, payloadTypeBitLength)
+);
     /**
         Router for butterfly networt
         This would work as 1x2 crossbar (1-input, 2-output)
@@ -50,30 +53,30 @@ module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter);
 
     // Componenets
     // Fifos
-    Fifo#(1, Flit) ingressFlit <- mkBypassFifo;
+    Fifo#(1, flitType) ingressFlit <- mkBypassFifo;
 `ifdef pipelined
-    Vector#(2, Fifo#(1, Flit)) egressFlits <- replicateM(mkPipelineFifo);
+    Vector#(2, Fifo#(1, flitType)) egressFlits <- replicateM(mkPipelineFifo);
 `else
-    Vector#(2, Fifo#(1, Flit)) egressFlits <- replicateM(mkBypassFifo);
+    Vector#(2, Fifo#(1, flitType)) egressFlits <- replicateM(mkBypassFifo);
 `endif
 
     
     // Rules
     rule forwardFlit if (ingressFlit.notEmpty);
-        let flit = ingressFlit.first;
+        match {.destinationAddress, .payload} = ingressFlit.first;
         ingressFlit.deq;
 
         // Crossing check
-        let towardsPort0 = msb(flit.destinationAddress) == 0;
+        let towardsPort0 = msb(destinationAddress) == 0;
 
         // Address modification
-        flit.destinationAddress = flit.destinationAddress << 1;
+        flitType updatedFlit = tuple2(destinationAddress << 1, payload);
 
         // Forwarding
         if (towardsPort0) begin
-            egressFlits[0].enq(flit);
+            egressFlits[0].enq(updatedFlit);
         end else begin
-            egressFlits[1].enq(flit);
+            egressFlits[1].enq(updatedFlit);
         end
     endrule
 
@@ -82,7 +85,7 @@ module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter);
     Vector#(2, ButterflyNetworkRouterEgressPort) egressPortDefinition;
     for (Integer i = 0; i < 2; i = i + 1) begin
         egressPortDefinition[i] = interface ButterflyNetworkRouterEgressPort
-            method ActionValue#(Flit) get;
+            method ActionValue#(Tuple2#(addressType, payloadType)) get;
                 egressFlits[i].deq;
                 return egressFlits[i].first;
             endmethod
@@ -90,8 +93,8 @@ module mkButterflyNetworkIngressRouter(ButterflyNetworkIngressRouter);
     end
 
     interface ingressPort = interface ButterflyNetworkRouterIngressPort
-        method Action put(Flit flit);
-            ingressFlit.enq(flit);
+        method Action put(addressType destinationAddress, payloadType payload);
+            ingressFlit.enq(tuple2(destinationAddress, payload));
         endmethod
     endinterface;        
 
