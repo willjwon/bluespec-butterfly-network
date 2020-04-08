@@ -20,12 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-
 import Fifo::*;
 import Vector::*;
 import Connectable::*;
 
-import ButterflyNetworkType::*;
 import ButterflyNetworkIngressRouter::*;
 import ButterflyNetworkInternalRouter::*;
 import ButterflyNetworkEgressRouter::*;
@@ -41,25 +39,26 @@ endinterface
 
 interface ButterflyNetwork#(numeric type terminalNodesCount, type addressType, type payloadType);
     interface Vector#(terminalNodesCount, ButterflyNetworkIngressPort#(addressType, payloadType)) ingressPort;
-    interface Vector#(terminalNodesCount, ButterflyNetworkEgressPort#(payloadType) egressPort;
+    interface Vector#(terminalNodesCount, ButterflyNetworkEgressPort#(payloadType)) egressPort;
 endinterface
 
 
-(* synthesize *)
 module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, payloadType)) provisos (
     Bits#(addressType, addressTypeBitLength),
+    Bitwise#(addressType),
     Log#(terminalNodesCount, addressTypeBitLength),
-    Bits#(payloadType, payloadTypeBitLength)
-    Alias#(Tuple2#(addressType, payloadType), flitType)
+    Bits#(payloadType, payloadTypeBitLength),
+    Alias#(Tuple2#(addressType, payloadType), flitType),
+    NumAlias#(TLog#(terminalNodesCount), networkLevelsCount)
 );
     /**
         Regular butterfly topology
     **/
 
     // Components
-    Vector#(terminalNodesCount, ButterflyNetworkIngressRouter#(addressType, payloadType) ingressRouters
+    Vector#(terminalNodesCount, ButterflyNetworkIngressRouter#(addressType, payloadType)) ingressRouters
         <- replicateM(mkButterflyNetworkIngressRouter);
-    Vector#(TSub#(NetworkLevelsCount, 1), Vector#(terminalNodesCount, ButterflyNetworkInternalRouter#(addressType, payloadType))) internalRouters
+    Vector#(TSub#(networkLevelsCount, 1), Vector#(terminalNodesCount, ButterflyNetworkInternalRouter#(addressType, payloadType))) internalRouters
         <- replicateM(replicateM(mkButterflyNetworkInternalRouter));
     Vector#(terminalNodesCount, ButterflyNetworkEgressRouter#(addressType, payloadType)) egressRouters 
         <- replicateM(mkButterflyNetworkEgressRouter);
@@ -121,7 +120,7 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
     end
 
     // (2) Connection among InternalRouters - using the algorithm above
-    for (Integer networkLevel = 1; networkLevel < valueOf(NetworkLevelsCount) - 1; networkLevel = networkLevel + 1) begin
+    for (Integer networkLevel = 1; networkLevel < valueOf(networkLevelsCount) - 1; networkLevel = networkLevel + 1) begin
         Integer nodesInSegmentCount = valueOf(terminalNodesCount) / (2 ** networkLevel);
 
         for (Integer segment = 0; segment < (2 ** networkLevel); segment = segment + 1) begin
@@ -144,10 +143,10 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
 
     // (3) Connect Last level InternalRouter - EgressRouter, Logic above doesn't change.
     // Values used to remove redundant for-loops:
-    //      - networkLevel = valueOf(NetworkLevelsCount) - 1
+    //      - networkLevel = valueOf(networkLevelsCount) - 1
     //      - router 0, 2, 4, ... wouldn't be rolled over
     //      - router 1, 3, 5, ..., would be rolled over
-    Integer lastLevel = valueOf(NetworkLevelsCount) - 2;
+    Integer lastLevel = valueOf(networkLevelsCount) - 2;
     for (Integer routerID = 0; routerID < valueOf(terminalNodesCount); routerID = routerID + 2) begin
         // routers not rolled over
         // destination would be (routerID, routerID + 1)
@@ -164,7 +163,7 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
 
     
     // Interfaces
-    Vector#(terminalNodesCount, ButterflyNetworkIngressPort) ingressPortDefinition;
+    Vector#(terminalNodesCount, ButterflyNetworkIngressPort#(addressType, payloadType)) ingressPortDefinition;
     for (Integer inPort = 0; inPort < valueOf(terminalNodesCount); inPort = inPort + 1) begin
         ingressPortDefinition[inPort] = interface ButterflyNetworkIngressPort#(addressType, payloadType)
             method Action put(addressType destinationAddress, payloadType payload);
@@ -173,7 +172,7 @@ module mkButterflyNetwork(ButterflyNetwork#(terminalNodesCount, addressType, pay
         endinterface;
     end
 
-    Vector#(terminalNodesCount, ButterflyNetworkEgressPort) egressPortDefinition;
+    Vector#(terminalNodesCount, ButterflyNetworkEgressPort#(payloadType)) egressPortDefinition;
     for (Integer outPort = 0; outPort < valueOf(terminalNodesCount); outPort = outPort + 1) begin
         egressPortDefinition[outPort] = interface ButterflyNetworkEgressPort#(payloadType)
             method ActionValue#(payloadType) get;

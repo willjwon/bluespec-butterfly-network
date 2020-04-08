@@ -24,8 +24,6 @@
 import Fifo::*;
 import Vector::*;
 
-import ButterflyNetworkType::*;
-
 
 interface ButterflyNetworkEgressRouterIngressPort#(type addressType, type payloadType);
     method Action put(Tuple2#(addressType, payloadType) flit);
