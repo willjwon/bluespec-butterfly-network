@@ -53,13 +53,8 @@ module mkIngressSwitch(IngressSwitch#(addressType, payloadType)) provisos (
     // Componenets
     // Fifos
     Fifo#(1, flitType) ingressFlit <- mkBypassFifo;
-`ifdef pipelined
-    Vector#(2, Fifo#(1, flitType)) egressFlits <- replicateM(mkPipelineFifo);
-`else
     Vector#(2, Fifo#(1, flitType)) egressFlits <- replicateM(mkBypassFifo);
-`endif
 
-    
     // Rules
     rule forwardFlit if (ingressFlit.notEmpty);
         match {.destinationAddress, .payload} = ingressFlit.first;

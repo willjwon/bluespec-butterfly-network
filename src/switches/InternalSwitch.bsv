@@ -55,12 +55,12 @@ module mkInternalSwitch(InternalSwitch#(addressType, payloadType)) provisos (
 
     // Componenets
     // Fifos
-    Vector#(2, Fifo#(1, flitType)) ingressFlits <- replicateM(mkBypassFifo);
 `ifdef pipelined
-    Vector#(2, Fifo#(1, flitType)) egressFlits <- replicateM(mkPipelineFifo);
+    Vector#(2, Fifo#(1, flitType)) ingressFlits <- replicateM(mkPipelineFifo);
 `else
-    Vector#(2, Fifo#(1, flitType)) egressFlits <- replicateM(mkBypassFifo);
+    Vector#(2, Fifo#(1, flitType)) ingressFlits <- replicateM(mkBypassFifo);
 `endif
+    Vector#(2, Fifo#(1, flitType)) egressFlits <- replicateM(mkBypassFifo);
 
     
     // Rules
