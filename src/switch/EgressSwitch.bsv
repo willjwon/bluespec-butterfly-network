@@ -59,7 +59,7 @@ module mkEgressSwitch(EgressSwitch#(addressType, payloadType)) provisos (
 `else
     Vector#(2, Fifo#(1, flitType)) ingressFlits <- replicateM(mkBypassFifo);
 `endif
-    Fifo#(1, payloadType) egressFlit <- mkPipelineFifo;
+    Fifo#(1, payloadType) egressFlit <- mkBypassFifo;
 
     
     // Rules

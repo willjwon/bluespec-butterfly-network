@@ -23,5 +23,5 @@
 
 
 # `DEFAULT_TEST_MODULE` defined in `DEFAULT_TEST_DIR/DEFAULT_TEST_MODULE.bsv` will be compiled and tested.
-DEFAULT_TEST_DIR="testbench"
-DEFAULT_TEST_MODULE="RegularButterflyNetworkTest"
+DEFAULT_TEST_DIR="testbench/network"
+DEFAULT_TEST_MODULE="IrregularButterflyNetworkTest"

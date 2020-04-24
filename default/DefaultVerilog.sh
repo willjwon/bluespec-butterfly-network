@@ -23,5 +23,5 @@
 
 
 # `DEFAULT_VERILOG_MODULE` defined in `DEFAULT_VERILOG_DIR/DEFAULT_VERILOG_MODULE.bsv` will be compiled into verilog.
-DEFAULT_VERILOG_DIR="instance"
-DEFAULT_VERILOG_MODULE="RegularButterflyNetworkInstance"
+DEFAULT_VERILOG_DIR="instance/network"
+DEFAULT_VERILOG_MODULE="IrregularButterflyNetworkInstance"
